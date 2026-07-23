@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title">
+  <title id="title">Victory traditional double iron door placeholder</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d8d0c2"/><stop offset="1" stop-color="#8e877a"/></linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="#cbc3b5"/>
+  <path d="M148 760V310C148 112 652 112 652 310v450z" fill="#1f1e1a"/>
+  <path d="M179 760V320C179 156 621 156 621 320v440z" fill="url(#bg)"/>
+  <path d="M400 207v553M179 390h442" stroke="#211f1b" stroke-width="18"/>
+  <g fill="none" stroke="#2a2822" stroke-width="13">
+    <path d="M210 700c110-90 124-196 190-306M590 700c-110-90-124-196-190-306"/>
+    <path d="M210 520c75-52 114-115 190-126M590 520c-75-52-114-115-190-126"/>
+  </g>
+  <circle cx="371" cy="568" r="8" fill="#b18a49"/><circle cx="429" cy="568" r="8" fill="#b18a49"/>
+</svg>

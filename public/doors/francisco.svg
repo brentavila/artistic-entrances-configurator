@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title">
+  <title id="title">Francisco scrollwork double iron door placeholder</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d0c7b7"/><stop offset="1" stop-color="#797267"/></linearGradient></defs>
+  <rect width="800" height="800" fill="#c6bdaf"/>
+  <rect x="142" y="72" width="516" height="688" fill="#201e1a"/>
+  <rect x="174" y="104" width="452" height="624" fill="url(#bg)"/>
+  <path d="M400 104v624" stroke="#211f1b" stroke-width="18"/>
+  <g fill="none" stroke="#26231e" stroke-width="11">
+    <path d="M205 670c170-60 40-246 195-310 155 64 25 250 195 310"/>
+    <path d="M205 290c170 60 40 246 195 310 155-64 25-250 195-310"/>
+    <circle cx="400" cy="480" r="70"/>
+    <path d="M220 178l180 180 180-180M220 690l180-180 180 180"/>
+  </g>
+  <circle cx="372" cy="534" r="8" fill="#b18a49"/><circle cx="428" cy="534" r="8" fill="#b18a49"/>
+</svg>

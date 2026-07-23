@@ -1,0 +1,12 @@
+type,id,name,description,hex,thumbnailUrl,reviewStatus,notes
+glass,clear,Clear,Maximum light and an open view,,,needs-owner-review,Temporary catalog record
+glass,frosted,Frosted,Soft diffused light with added privacy,,,needs-owner-review,Temporary catalog record
+glass,rain,Rain,Vertical texture balancing light and privacy,,,needs-owner-review,Temporary catalog record
+glass,aquatex,Aquatex,Textured glass with an obscured view,,,needs-owner-review,Temporary catalog record
+handle,square-pull,Square Pull,Clean architectural profile,,,needs-owner-review,Needs cropped catalog thumbnail
+handle,round-pull,Round Pull,Classic full-length pull,,,needs-owner-review,Needs cropped catalog thumbnail
+handle,heritage-lever,Heritage Lever,Traditional lever with decorative detail,,,needs-owner-review,Needs cropped catalog thumbnail
+finish,midnight-black,Midnight Black,Deep neutral black,#171717,,needs-owner-review,Replace hex with catalog-confirmed value
+finish,aged-bronze,Aged Bronze,Warm dark bronze,#554438,,needs-owner-review,Replace hex with catalog-confirmed value
+finish,charcoal,Charcoal,Soft graphite gray,#454545,,needs-owner-review,Replace hex with catalog-confirmed value
+finish,copper-patina,Copper Patina,Warm artisanal copper tone,#7A4F3B,,needs-owner-review,Replace hex with catalog-confirmed value

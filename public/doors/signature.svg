@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title">
+  <title id="title">Signature contemporary double iron door placeholder</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#bcb4a7"/><stop offset="1" stop-color="#665f55"/></linearGradient></defs>
+  <rect width="800" height="800" fill="#cbc3b7"/>
+  <rect x="146" y="70" width="508" height="690" fill="#1e1d19"/>
+  <rect x="180" y="104" width="440" height="622" fill="url(#bg)"/>
+  <g fill="#25231f">
+    <path d="M180 104h58l382 470v82h-58L180 186z"/>
+    <path d="M620 104h-58L180 574v82h58l382-470z"/>
+    <rect x="390" y="104" width="20" height="622"/>
+  </g>
+  <rect x="354" y="450" width="8" height="156" rx="4" fill="#b18a49"/>
+  <rect x="438" y="450" width="8" height="156" rx="4" fill="#b18a49"/>
+</svg>

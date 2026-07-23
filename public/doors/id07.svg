@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title">
+  <title id="title">ID07 modern single iron door placeholder</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b8b1a5"/><stop offset="1" stop-color="#625e56"/></linearGradient></defs>
+  <rect width="800" height="800" fill="#d1cabf"/>
+  <rect x="214" y="70" width="372" height="690" fill="#1c1b18"/>
+  <rect x="246" y="102" width="308" height="626" fill="url(#bg)"/>
+  <g fill="#24221e">
+    <rect x="270" y="135" width="86" height="560"/>
+    <rect x="382" y="135" width="148" height="265"/>
+    <rect x="382" y="430" width="148" height="265"/>
+  </g>
+  <rect x="518" y="348" width="8" height="150" rx="4" fill="#b18a49"/>
+</svg>

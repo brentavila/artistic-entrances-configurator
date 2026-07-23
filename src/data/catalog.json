@@ -1,0 +1,94 @@
+{
+  "version": "2026-07-22-draft",
+  "status": "development-placeholder",
+  "notice": "Replace these temporary public site records after the client source-folder audit and owner review.",
+  "doors": [
+    {
+      "id": "ae-victory-double",
+      "name": "Victory",
+      "slug": "victory-double",
+      "style": "Traditional",
+      "configuration": "Double Door",
+      "imageUrl": "/doors/victory.svg",
+      "thumbnailUrl": "/doors/victory.svg",
+      "alt": "Victory traditional double iron entry door",
+      "availableGlassIds": ["clear", "frosted", "rain", "aquatex"],
+      "availableHandleIds": ["square-pull", "round-pull", "heritage-lever"],
+      "availableFinishIds": ["midnight-black", "aged-bronze", "charcoal", "copper-patina"],
+      "featured": true
+    },
+    {
+      "id": "ae-id07-single",
+      "name": "ID07",
+      "slug": "id07-single",
+      "style": "Modern",
+      "configuration": "Single Door",
+      "imageUrl": "/doors/id07.svg",
+      "thumbnailUrl": "/doors/id07.svg",
+      "alt": "ID07 modern single iron entry door",
+      "availableGlassIds": ["clear", "frosted", "rain"],
+      "availableHandleIds": ["square-pull", "round-pull"],
+      "availableFinishIds": ["midnight-black", "aged-bronze", "charcoal"],
+      "featured": true
+    },
+    {
+      "id": "ae-francisco-double",
+      "name": "Francisco",
+      "slug": "francisco-double",
+      "style": "Scrollwork",
+      "configuration": "Double Door",
+      "imageUrl": "/doors/francisco.svg",
+      "thumbnailUrl": "/doors/francisco.svg",
+      "alt": "Francisco decorative scrollwork double iron door",
+      "availableGlassIds": ["clear", "frosted", "rain", "aquatex"],
+      "availableHandleIds": ["round-pull", "heritage-lever"],
+      "availableFinishIds": ["midnight-black", "aged-bronze", "copper-patina"],
+      "featured": true
+    },
+    {
+      "id": "ae-estate-36x96",
+      "name": "Estate 36 × 96",
+      "slug": "estate-36x96",
+      "style": "Estate",
+      "configuration": "Double Door",
+      "imageUrl": "/doors/estate.svg",
+      "thumbnailUrl": "/doors/estate.svg",
+      "alt": "Estate 36 by 96 double iron entry door",
+      "availableGlassIds": ["clear", "frosted", "aquatex"],
+      "availableHandleIds": ["square-pull", "round-pull", "heritage-lever"],
+      "availableFinishIds": ["midnight-black", "aged-bronze", "charcoal", "copper-patina"],
+      "featured": false
+    },
+    {
+      "id": "ae-signature-36x96",
+      "name": "Signature 36 × 96",
+      "slug": "signature-36x96",
+      "style": "Contemporary",
+      "configuration": "Double Door",
+      "imageUrl": "/doors/signature.svg",
+      "thumbnailUrl": "/doors/signature.svg",
+      "alt": "Signature contemporary double iron entry door",
+      "availableGlassIds": ["clear", "frosted", "rain"],
+      "availableHandleIds": ["square-pull", "round-pull"],
+      "availableFinishIds": ["midnight-black", "aged-bronze", "charcoal"],
+      "featured": false
+    }
+  ],
+  "glass": [
+    { "id": "clear", "name": "Clear", "description": "Maximum light and an open view.", "thumbnailUrl": null },
+    { "id": "frosted", "name": "Frosted", "description": "Soft, diffused light with added privacy.", "thumbnailUrl": null },
+    { "id": "rain", "name": "Rain", "description": "Vertical texture that balances light and privacy.", "thumbnailUrl": null },
+    { "id": "aquatex", "name": "Aquatex", "description": "Textured glass with a refined, obscured view.", "thumbnailUrl": null }
+  ],
+  "handles": [
+    { "id": "square-pull", "name": "Square Pull", "description": "Clean architectural profile.", "thumbnailUrl": null },
+    { "id": "round-pull", "name": "Round Pull", "description": "Classic full-length pull.", "thumbnailUrl": null },
+    { "id": "heritage-lever", "name": "Heritage Lever", "description": "Traditional lever with decorative detail.", "thumbnailUrl": null }
+  ],
+  "finishes": [
+    { "id": "midnight-black", "name": "Midnight Black", "hex": "#171717", "textureUrl": null, "description": "Deep neutral black." },
+    { "id": "aged-bronze", "name": "Aged Bronze", "hex": "#554438", "textureUrl": null, "description": "Warm, dark bronze." },
+    { "id": "charcoal", "name": "Charcoal", "hex": "#454545", "textureUrl": null, "description": "Soft graphite gray." },
+    { "id": "copper-patina", "name": "Copper Patina", "hex": "#7A4F3B", "textureUrl": null, "description": "Warm artisanal copper tone." }
+  ]
+}
