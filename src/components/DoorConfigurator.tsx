@@ -34,6 +34,8 @@ export function DoorConfigurator() {
     "idle",
   );
   const [message, setMessage] = useState("");
+  const [doorQuery, setDoorQuery] = useState("");
+  const [visibleDoors, setVisibleDoors] = useState(24);
 
   const door = useMemo(
     () => catalog.doors.find((item) => item.id === doorId) ?? catalog.doors[0],
@@ -43,6 +45,24 @@ export function DoorConfigurator() {
   const handle = optionById(catalog.handles, handleId) ?? catalog.handles[0];
   const finish = optionById(catalog.finishes, finishId) ?? catalog.finishes[0];
   const currentStepIndex = steps.findIndex((item) => item.id === step);
+  const filteredDoors = useMemo(() => {
+    const query = doorQuery.trim().toLowerCase();
+    if (!query) return catalog.doors;
+
+    return catalog.doors.filter((item) => {
+      const haystack = [
+        item.id,
+        item.name,
+        item.slug,
+        item.style,
+        item.configuration,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [doorQuery]);
+  const displayedDoors = filteredDoors.slice(0, visibleDoors);
 
   function selectDoor(id: string) {
     const nextDoor = catalog.doors.find((item) => item.id === id);
@@ -174,8 +194,24 @@ export function DoorConfigurator() {
                 Start with the silhouette and ironwork that feels right for your
                 home.
               </p>
+              <label className="door-search">
+                Search doors
+                <input
+                  name="doorSearch"
+                  onChange={(event) => {
+                    setDoorQuery(event.target.value);
+                    setVisibleDoors(24);
+                  }}
+                  placeholder="Search by door number or name"
+                  type="search"
+                  value={doorQuery}
+                />
+              </label>
+              <p className="door-results-copy">
+                Showing {displayedDoors.length} of {filteredDoors.length} doors
+              </p>
               <div className="door-grid">
-                {catalog.doors.map((item) => (
+                {displayedDoors.map((item) => (
                   <button
                     aria-pressed={item.id === door.id}
                     className={item.id === door.id ? "door-card selected" : "door-card"}
@@ -196,6 +232,15 @@ export function DoorConfigurator() {
                   </button>
                 ))}
               </div>
+              {visibleDoors < filteredDoors.length && (
+                <button
+                  className="secondary-action"
+                  onClick={() => setVisibleDoors((count) => count + 24)}
+                  type="button"
+                >
+                  Load More Doors
+                </button>
+              )}
               <button
                 className="primary-action"
                 onClick={() => goTo("details")}

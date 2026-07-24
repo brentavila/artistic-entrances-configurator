@@ -18,11 +18,33 @@ The form validates locally in development when the n8n webhook is not configured
 
 - `N8N_QUOTE_WEBHOOK_URL` — private production webhook
 - `N8N_QUOTE_WEBHOOK_TOKEN` — bearer token checked by n8n
-- `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` — public Cloudinary cloud name
-- `CLOUDINARY_API_KEY` — server or local upload script only
-- `CLOUDINARY_API_SECRET` — server or local upload script only
+- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — public anon key (for future client use)
+- `SUPABASE_SERVICE_ROLE_KEY` — server-side uploads only; never expose in the browser
+- `SUPABASE_STORAGE_BUCKET` — storage bucket name (default: `artistic-entrances-doors`)
 
 Never commit `.env.local`.
+
+## Supabase Storage Setup
+
+1. Create a Supabase project.
+2. Create a public bucket named `artistic-entrances-doors`.
+3. Add the env vars above to `.env.local`.
+4. Keep the service role key out of git and out of MaaxGen Brain.
+
+Suggested bucket layout:
+
+```text
+doors/full/{slug}.webp
+doors/thumbnails/{slug}.webp
+catalog/{option-id}.webp
+```
+
+Public URL format:
+
+```text
+{NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/artistic-entrances-doors/doors/full/{slug}.webp
+```
 
 ## Asset Workflow
 
@@ -34,12 +56,12 @@ Raw and processed media live outside this repository:
 2. Copy the source catalog to `raw\catalog\`.
 3. Run `npm run audit:assets`.
 4. Review `asset-audit\asset-manifest.csv` and assign final catalog IDs.
-5. Crop catalog options and export optimized files to `processed\`.
-6. Add Cloudinary credentials to `.env.local`.
-7. Run `npm run cdn:upload`.
-8. Review `data\cloudinary-manifest.json` and replace temporary catalog URLs.
+5. Run `npm run assets:process` to create WebP full images and thumbnails in `processed\`.
+6. Add Supabase credentials to `.env.local`.
+7. Run `npm run assets:upload` or `npm run assets:sync`.
+8. Review `data\supabase-manifest.json` and replace temporary catalog URLs.
 
-The current catalog contains five temporary public images referenced by the existing Artistic Entrances site. All option names and compatibility must be reviewed by the owners before launch.
+The current catalog contains placeholder SVG door previews. All option names and compatibility must be reviewed by the owners before launch.
 
 ## Lead Delivery
 
@@ -70,7 +92,7 @@ No contact information is pushed to the data layer.
 ## Launch Checklist
 
 - Replace temporary catalog data with owner-reviewed records
-- Upload optimized product images to the production CDN
+- Upload optimized product images to Supabase Storage
 - Configure and test the n8n webhook
 - Verify GoHighLevel contact, opportunity, tags, and workflow
 - Validate GTM events and conversion deduplication

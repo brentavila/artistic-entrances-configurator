@@ -8,10 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "audit:assets": "node scripts/audit-assets.mjs",
-    "cdn:upload": "node --env-file=.env.local scripts/upload-cloudinary.mjs"
+    "assets:process": "node scripts/process-assets.mjs",
+    "assets:upload": "node --env-file=.env.local scripts/upload-supabase.mjs",
+    "assets:sync": "npm run assets:process && npm run assets:upload",
+    "catalog:generate": "node scripts/generate-catalog.mjs"
   },
   "dependencies": {
-    "next": "16.1.6",
+    "next": "16.2.11",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
@@ -21,7 +24,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.2.11",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
