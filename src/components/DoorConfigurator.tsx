@@ -165,6 +165,7 @@ export function DoorConfigurator() {
               priority
               sizes="(max-width: 900px) 100vw, 45vw"
               src={door.imageUrl}
+              unoptimized
             />
             <div className="preview-label">
               <p>{door.style}</p>
@@ -173,7 +174,7 @@ export function DoorConfigurator() {
           </div>
           <div className="selection-ribbon">
             <span>
-              <i style={{ backgroundColor: finish.hex }} />
+              <FinishThumb finish={finish} size="sm" />
               {finish.name}
             </span>
             <span>{glass.name} Glass</span>
@@ -225,6 +226,7 @@ export function DoorConfigurator() {
                         fill
                         sizes="(max-width: 600px) 42vw, 150px"
                         src={item.thumbnailUrl}
+                        unoptimized
                       />
                     </span>
                     <strong>{item.name}</strong>
@@ -285,6 +287,14 @@ export function DoorConfigurator() {
               />
               <fieldset className="option-group">
                 <legend>Finish</legend>
+                <div className="finish-preview" aria-live="polite">
+                  <FinishThumb finish={finish} size="lg" />
+                  <div>
+                    <span>Selected Finish</span>
+                    <strong>{finish.name}</strong>
+                    <p>{finish.description}</p>
+                  </div>
+                </div>
                 <div className="swatch-row">
                   {catalog.finishes
                     .filter((item) => door.availableFinishIds.includes(item.id))
@@ -305,7 +315,7 @@ export function DoorConfigurator() {
                         }}
                         type="button"
                       >
-                        <i style={{ backgroundColor: item.hex }} />
+                        <FinishThumb finish={item} size="md" />
                         <span>{item.name}</span>
                       </button>
                     ))}
@@ -337,7 +347,13 @@ export function DoorConfigurator() {
                 <SummaryRow label="Style" value={door.style} />
                 <SummaryRow label="Glass" value={glass.name} />
                 <SummaryRow label="Handle" value={handle.name} />
-                <SummaryRow label="Finish" value={finish.name} />
+                <div className="summary-finish-row">
+                  <span>Finish</span>
+                  <strong>
+                    <FinishThumb finish={finish} size="sm" />
+                    {finish.name}
+                  </strong>
+                </div>
               </div>
               <p className="section-copy">
                 An expert will confirm measurements, compatibility, delivery,
@@ -509,6 +525,37 @@ function OptionGroup({
         ))}
       </div>
     </fieldset>
+  );
+}
+
+function FinishThumb({
+  finish,
+  size,
+}: {
+  finish: { name: string; hex: string; textureUrl: string | null };
+  size: "sm" | "md" | "lg";
+}) {
+  if (finish.textureUrl) {
+    return (
+      <span className={`finish-thumb finish-thumb-${size}`}>
+        <Image
+          alt=""
+          aria-hidden
+          fill
+          sizes={size === "sm" ? "16px" : size === "md" ? "88px" : "220px"}
+          src={finish.textureUrl}
+          unoptimized
+        />
+      </span>
+    );
+  }
+
+  return (
+    <i
+      aria-hidden
+      className={`finish-thumb finish-thumb-${size} finish-thumb-hex`}
+      style={{ backgroundColor: finish.hex }}
+    />
   );
 }
 

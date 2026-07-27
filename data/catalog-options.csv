@@ -1,12 +1,24 @@
 type,id,name,description,hex,thumbnailUrl,reviewStatus,notes
-glass,clear,Clear,Maximum light and an open view,,,needs-owner-review,Temporary catalog record
-glass,frosted,Frosted,Soft diffused light with added privacy,,,needs-owner-review,Temporary catalog record
-glass,rain,Rain,Vertical texture balancing light and privacy,,,needs-owner-review,Temporary catalog record
-glass,aquatex,Aquatex,Textured glass with an obscured view,,,needs-owner-review,Temporary catalog record
-handle,square-pull,Square Pull,Clean architectural profile,,,needs-owner-review,Needs cropped catalog thumbnail
-handle,round-pull,Round Pull,Classic full-length pull,,,needs-owner-review,Needs cropped catalog thumbnail
-handle,heritage-lever,Heritage Lever,Traditional lever with decorative detail,,,needs-owner-review,Needs cropped catalog thumbnail
-finish,midnight-black,Midnight Black,Deep neutral black,#171717,,needs-owner-review,Replace hex with catalog-confirmed value
-finish,aged-bronze,Aged Bronze,Warm dark bronze,#554438,,needs-owner-review,Replace hex with catalog-confirmed value
-finish,charcoal,Charcoal,Soft graphite gray,#454545,,needs-owner-review,Replace hex with catalog-confirmed value
-finish,copper-patina,Copper Patina,Warm artisanal copper tone,#7A4F3B,,needs-owner-review,Replace hex with catalog-confirmed value
+glass,clear,Clear,Maximum light and an open view.,,,needs-owner-review,Temporary catalog record
+glass,frosted,Frosted,"Soft, diffused light with added privacy.",,,needs-owner-review,Temporary catalog record
+glass,rain,Rain,Vertical texture that balances light and privacy.,,,needs-owner-review,Temporary catalog record
+glass,aquatex,Aquatex,"Textured glass with a refined, obscured view.",,,needs-owner-review,Temporary catalog record
+handle,square-pull,Square Pull,Clean architectural profile.,,,needs-owner-review,Needs cropped catalog thumbnail
+handle,round-pull,Round Pull,Classic full-length pull.,,,needs-owner-review,Needs cropped catalog thumbnail
+handle,heritage-lever,Heritage Lever,Traditional lever with decorative detail.,,,needs-owner-review,Needs cropped catalog thumbnail
+finish,antique-brass,Antique Brass,Warm brass with aged character.,#C5A46B,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/antique-brass.webp,needs-owner-review,Finish swatch from owner assets
+finish,blue,Blue,Deep architectural blue.,#2F4F8F,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/blue.webp,needs-owner-review,Finish swatch from owner assets
+finish,bronze,Bronze,Classic medium bronze.,#6B4E31,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/bronze.webp,needs-owner-review,Finish swatch from owner assets
+finish,brown,Brown,Rich medium brown.,#5C4033,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/brown.webp,needs-owner-review,Finish swatch from owner assets
+finish,cs014,CS014,Catalog finish CS014.,#7A746C,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/cs014.webp,needs-owner-review,Finish swatch from owner assets
+finish,espresso-brown,Espresso Brown,Dark espresso brown.,#3C2415,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/espresso-brown.webp,needs-owner-review,Finish swatch from owner assets
+finish,gold,Gold,Bright metallic gold.,#D4AF37,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/gold.webp,needs-owner-review,Finish swatch from owner assets
+finish,golden-brown,Golden Brown,Warm golden brown.,#996515,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/golden-brown.webp,needs-owner-review,Finish swatch from owner assets
+finish,green,Green,Deep forest green.,#2F5D3A,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/green.webp,needs-owner-review,Finish swatch from owner assets
+finish,grey,Grey,Neutral mid grey.,#6E6E6E,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/grey.webp,needs-owner-review,Finish swatch from owner assets
+finish,night-brown,Night Brown,Near-black night brown.,#2C1810,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/night-brown.webp,needs-owner-review,Finish swatch from owner assets
+finish,off-white,Off White,Soft off-white.,#F5F2E8,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/off-white.webp,needs-owner-review,Finish swatch from owner assets
+finish,red,Red,Vibrant red powder coat.,#C41E3A,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/red.webp,needs-owner-review,Finish swatch from owner assets
+finish,walnut,Walnut,Natural walnut tone.,#5D3A1A,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/walnut.webp,needs-owner-review,Finish swatch from owner assets
+finish,white,White,Clean bright white.,#F7F7F5,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/white.webp,needs-owner-review,Finish swatch from owner assets
+finish,wood-grain-color,Wood Grain,Wood-grain color finish.,#8B6914,https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/wood-grain-color.webp,needs-owner-review,Finish swatch from owner assets
