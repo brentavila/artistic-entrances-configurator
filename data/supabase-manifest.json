@@ -1,7 +1,119 @@
 {
-  "generatedAt": "2026-07-24T17:32:27.656Z",
+  "generatedAt": "2026-07-27T17:26:19.440Z",
   "bucket": "artistic-entrances-doors",
   "assets": [
+    {
+      "relativePath": "catalog/antique-brass.webp",
+      "objectPath": "catalog/antique-brass.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/antique-brass.webp",
+      "bytes": 14460,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/blue.webp",
+      "objectPath": "catalog/blue.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/blue.webp",
+      "bytes": 8046,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/bronze.webp",
+      "objectPath": "catalog/bronze.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/bronze.webp",
+      "bytes": 7702,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/brown.webp",
+      "objectPath": "catalog/brown.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/brown.webp",
+      "bytes": 6140,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/cs014.webp",
+      "objectPath": "catalog/cs014.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/cs014.webp",
+      "bytes": 23358,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/espresso-brown.webp",
+      "objectPath": "catalog/espresso-brown.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/espresso-brown.webp",
+      "bytes": 6932,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/gold.webp",
+      "objectPath": "catalog/gold.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/gold.webp",
+      "bytes": 25972,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/golden-brown.webp",
+      "objectPath": "catalog/golden-brown.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/golden-brown.webp",
+      "bytes": 19904,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/green.webp",
+      "objectPath": "catalog/green.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/green.webp",
+      "bytes": 5294,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/grey.webp",
+      "objectPath": "catalog/grey.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/grey.webp",
+      "bytes": 10192,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/night-brown.webp",
+      "objectPath": "catalog/night-brown.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/night-brown.webp",
+      "bytes": 12188,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/off-white.webp",
+      "objectPath": "catalog/off-white.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/off-white.webp",
+      "bytes": 5270,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/red.webp",
+      "objectPath": "catalog/red.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/red.webp",
+      "bytes": 11224,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/walnut.webp",
+      "objectPath": "catalog/walnut.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/walnut.webp",
+      "bytes": 19628,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/white.webp",
+      "objectPath": "catalog/white.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/white.webp",
+      "bytes": 8106,
+      "contentType": "image/webp"
+    },
+    {
+      "relativePath": "catalog/wood-grain-color.webp",
+      "objectPath": "catalog/wood-grain-color.webp",
+      "publicUrl": "https://slsdmsqylhyknwhqertw.supabase.co/storage/v1/object/public/artistic-entrances-doors/catalog/wood-grain-color.webp",
+      "bytes": 9396,
+      "contentType": "image/webp"
+    },
     {
       "relativePath": "doors/full/website-images-1.webp",
       "objectPath": "doors/full/website-images-1.webp",
