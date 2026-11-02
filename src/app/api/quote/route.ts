@@ -1,4 +1,8 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
+import sharp from "sharp";
+import { business } from "@/lib/business";
 import {
   buildSummary,
   deliverToGoHighLevel,
@@ -84,6 +88,15 @@ export async function POST(request: Request) {
     handleName: asText(form.get("handleName")),
     finishId: asText(form.get("finishId")),
     finishName: asText(form.get("finishName")),
+    lockId: asText(form.get("lockId")),
+    lockName: asText(form.get("lockName")),
+    screenId: asText(form.get("screenId")),
+    screenName: asText(form.get("screenName")),
+    sidelightId: asText(form.get("sidelightId")),
+    sidelightName: asText(form.get("sidelightName")),
+    jambId: asText(form.get("jambId")),
+    jambName: asText(form.get("jambName")),
+    doorImageUrl: "",
     sourceUrl: asText(form.get("sourceUrl")),
     utmSource: asText(form.get("utm_source")),
     utmMedium: asText(form.get("utm_medium")),
@@ -96,6 +109,8 @@ export async function POST(request: Request) {
     mockupEligible,
     consentTimestamp: new Date().toISOString(),
   };
+  const doorImage = await readDoorImage(asText(form.get("doorImagePath")));
+  if (doorImage) partial.doorImageUrl = doorImage.url;
   const lead: LeadRecord = {
     ...partial,
     tags: leadTags(partial),
@@ -131,6 +146,15 @@ export async function POST(request: Request) {
     form.set("summary", lead.summary);
     form.set("consentTimestamp", lead.consentTimestamp);
     form.set("leadSource", `website-${lead.leadType}`);
+    form.set("doorImageUrl", lead.doorImageUrl);
+    if (doorImage) {
+      form.set(
+        "doorImage",
+        new File([new Uint8Array(doorImage.jpeg)], doorImage.filename, {
+          type: "image/jpeg",
+        }),
+      );
+    }
     const headers = new Headers();
     if (process.env.N8N_QUOTE_WEBHOOK_TOKEN) {
       headers.set("Authorization", `Bearer ${process.env.N8N_QUOTE_WEBHOOK_TOKEN}`);
@@ -148,7 +172,10 @@ export async function POST(request: Request) {
       );
     }
   } else {
-    const delivered = await deliverToGoHighLevel(lead);
+    const delivered = await deliverToGoHighLevel(
+      lead,
+      doorImage ? { bytes: doorImage.jpeg, filename: doorImage.filename } : undefined,
+    );
     if (!delivered.ok) {
       return NextResponse.json(
         { message: "Delivery failed. Please try again." },
@@ -166,4 +193,19 @@ export async function POST(request: Request) {
 
 function asText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+async function readDoorImage(imagePath: string) {
+  if (!/^\/media\/doors\/(?:full|thumbnails)\/[a-z0-9-]+\.webp$/.test(imagePath)) {
+    return null;
+  }
+  const absolute = path.join(process.cwd(), "public", imagePath);
+  const bytes = await readFile(absolute);
+  const jpeg = await sharp(bytes).jpeg({ quality: 82 }).toBuffer();
+  const filename = `${path.basename(imagePath, ".webp")}.jpg`;
+  return {
+    jpeg,
+    filename,
+    url: `${business.siteUrl}${imagePath}`,
+  };
 }

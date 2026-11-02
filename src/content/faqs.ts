@@ -16,7 +16,7 @@ export const homeFaqs: Faq[] = [
   {
     question: "Can I choose the glass, handle, and finish?",
     answer:
-      "Yes. The designer offers clear, frosted, rain, and Aquatex glass, plus handle and finish choices. The on-screen preview shows the door style and a glass sample. The Artistic Entrances team confirms compatibility before anything is built.",
+      "Yes. The designer records clear, frosted, rain, or Aquatex glass, plus the handle, finish, lock, screen, sidelights, and jamb. The door photo stays as it was taken. The team confirms those choices before anything is built.",
   },
   {
     question: "Do you install iron doors in Las Vegas?",
@@ -28,7 +28,7 @@ export const designFaqs: Faq[] = [
   {
     question: "Does the preview show the finished door?",
     answer:
-      "The preview shows the selected door style, with glass, handle, and finish shown as separate samples. A generated mockup that combines the door, color, handle, and glass is prepared only after you submit your contact details, and only for projects in greater Las Vegas.",
+      "The large photo is the door you picked, in the finish already on that image. Glass, handle, lock, screen, sidelights, and jamb are listed next to it and are not painted onto the photo. Choose As shown to keep that pictured finish, or pick another finish such as matte black. A combined mockup is prepared only after you submit your contact details, and only for projects in greater Las Vegas.",
   },
   {
     question: "What glass types are available?",
@@ -64,7 +64,7 @@ export const lasVegasFaqs: Faq[] = [
   {
     question: "How long does a custom iron door take in Las Vegas?",
     answer:
-      "Lead time depends on the design and the season. Featured catalog collections are often quoted in a range of about 8 to 16 weeks. Artistic Entrances confirms the timeline for your opening when the quote is prepared.",
+      "After you approve the drawing, a custom door usually takes 8 to 16 weeks. Doors that are already built can be browsed at artisticentrances.shop. Artistic Entrances confirms the timeline for your opening when the quote is prepared.",
   },
 ];
 
@@ -161,7 +161,7 @@ export const privacyFaqs: Faq[] = [
   {
     question: "What information does a form collect?",
     answer:
-      "Quote, catalog, and contact forms collect your name, email, phone, ZIP code, project notes, and, on a quote, the door, glass, handle, and finish you selected. An optional entry photo can be attached to a quote.",
+      "Quote, catalog, and contact forms collect your name, email, phone, ZIP code, and project notes. A quote also stores the door, the catalog photo of that door, glass, handle, finish, lock, screen, sidelights, and jamb. An optional photo of your current entry can be attached.",
   },
   {
     question: "Where does that information go?",

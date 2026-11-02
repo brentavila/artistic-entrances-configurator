@@ -2,8 +2,15 @@
 
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { catalog, optionById } from "@/lib/catalog";
+import {
+  choiceById,
+  jambOptions,
+  lockOptions,
+  screenOptions,
+  sidelightOptions,
+} from "@/lib/design-options";
 import { isGreaterLasVegasZip, zip5 } from "@/lib/service-area";
 
 declare global {
@@ -13,6 +20,24 @@ declare global {
 }
 
 type Step = "door" | "details" | "review" | "quote";
+type DoorLayout = "all" | "single" | "double";
+
+type SavedDesign = {
+  id: string;
+  savedAt: string;
+  doorId: string;
+  doorName: string;
+  glassId: string;
+  handleId: string;
+  finishId: string;
+  lockId: string;
+  screenId: string;
+  sidelightId: string;
+  jambId: string;
+};
+
+const currentDesignKey = "ae-current-design";
+const savedDesignsKey = "ae-saved-doors";
 
 const steps: Array<{ id: Step; label: string }> = [
   { id: "door", label: "Door" },
@@ -35,9 +60,31 @@ export function DoorConfigurator() {
     ) ?? catalog.doors[0];
   const [step, setStep] = useState<Step>("door");
   const [doorId, setDoorId] = useState(startingDoor.id);
-  const [glassId, setGlassId] = useState(catalog.glass[0].id);
-  const [handleId, setHandleId] = useState(catalog.handles[0].id);
-  const [finishId, setFinishId] = useState(catalog.finishes[0].id);
+  const [glassId, setGlassId] = useState(
+    knownId(catalog.glass, params.get("glass")) ?? catalog.glass[0].id,
+  );
+  const [handleId, setHandleId] = useState(
+    knownId(catalog.handles, params.get("handle")) ?? catalog.handles[0].id,
+  );
+  const [finishId, setFinishId] = useState(
+    knownId(catalog.finishes, params.get("finish")) ?? catalog.finishes[0].id,
+  );
+  const [lockId, setLockId] = useState(
+    knownId(lockOptions, params.get("lock")) ?? lockOptions[0].id,
+  );
+  const [screenId, setScreenId] = useState(
+    knownId(screenOptions, params.get("screen")) ?? screenOptions[0].id,
+  );
+  const [sidelightId, setSidelightId] = useState(
+    knownId(sidelightOptions, params.get("sidelight")) ?? sidelightOptions[0].id,
+  );
+  const [jambId, setJambId] = useState(
+    knownId(jambOptions, params.get("jamb")) ?? jambOptions[0].id,
+  );
+  const [layoutFilter, setLayoutFilter] = useState<DoorLayout>("all");
+  const [savedDoors, setSavedDoors] = useState<SavedDesign[]>([]);
+  const [saveNote, setSaveNote] = useState("");
+  const hydrated = useRef(false);
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">(
     "idle",
   );
@@ -54,24 +101,117 @@ export function DoorConfigurator() {
   const glass = optionById(catalog.glass, glassId) ?? catalog.glass[0];
   const handle = optionById(catalog.handles, handleId) ?? catalog.handles[0];
   const finish = optionById(catalog.finishes, finishId) ?? catalog.finishes[0];
+  const lock = choiceById(lockOptions, lockId);
+  const screen = choiceById(screenOptions, screenId);
+  const sidelight = choiceById(sidelightOptions, sidelightId);
+  const jamb = choiceById(jambOptions, jambId);
   const currentStepIndex = steps.findIndex((item) => item.id === step);
   const filteredDoors = useMemo(() => {
     const query = doorQuery.trim().toLowerCase();
-    if (!query) return catalog.doors;
-
     return catalog.doors.filter((item) => {
+      if (layoutFilter !== "all" && item.layout !== layoutFilter) return false;
+      if (!query) return true;
       const haystack = [
         item.id,
         item.name,
         item.slug,
         item.style,
         item.configuration,
+        item.layout,
       ]
         .join(" ")
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [doorQuery]);
+  }, [doorQuery, layoutFilter]);
+
+  useEffect(() => {
+    const saved = readSavedDesigns();
+    setSavedDoors(saved);
+    const hasDesignParams = ["glass", "handle", "finish", "lock", "screen", "sidelight", "jamb"].some(
+      (key) => params.get(key),
+    );
+    if (!hasDesignParams) {
+      const current = readCurrentDesign();
+      if (current) applyDesign(current);
+    }
+    hydrated.current = true;
+    // Restore once. Later edits write the current design back to this browser.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const current: SavedDesign = {
+      id: "current",
+      savedAt: new Date().toISOString(),
+      doorId,
+      doorName: door.name,
+      glassId,
+      handleId,
+      finishId,
+      lockId,
+      screenId,
+      sidelightId,
+      jambId,
+    };
+    window.localStorage.setItem(currentDesignKey, JSON.stringify(current));
+    const query = new URLSearchParams(window.location.search);
+    query.set("door", doorId);
+    query.set("glass", glassId);
+    query.set("handle", handleId);
+    query.set("finish", finishId);
+    query.set("lock", lockId);
+    query.set("screen", screenId);
+    query.set("sidelight", sidelightId);
+    query.set("jamb", jambId);
+    window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
+  }, [
+    door.name,
+    doorId,
+    finishId,
+    glassId,
+    handleId,
+    jambId,
+    lockId,
+    screenId,
+    sidelightId,
+  ]);
+
+  function applyDesign(design: Partial<SavedDesign>) {
+    if (design.doorId && catalog.doors.some((item) => item.id === design.doorId)) {
+      setDoorId(design.doorId);
+    }
+    if (design.glassId && knownId(catalog.glass, design.glassId)) setGlassId(design.glassId);
+    if (design.handleId && knownId(catalog.handles, design.handleId)) setHandleId(design.handleId);
+    if (design.finishId && knownId(catalog.finishes, design.finishId)) setFinishId(design.finishId);
+    if (design.lockId && knownId(lockOptions, design.lockId)) setLockId(design.lockId);
+    if (design.screenId && knownId(screenOptions, design.screenId)) setScreenId(design.screenId);
+    if (design.sidelightId && knownId(sidelightOptions, design.sidelightId)) {
+      setSidelightId(design.sidelightId);
+    }
+    if (design.jambId && knownId(jambOptions, design.jambId)) setJambId(design.jambId);
+  }
+
+  function saveDesign() {
+    const entry: SavedDesign = {
+      id: crypto.randomUUID(),
+      savedAt: new Date().toISOString(),
+      doorId,
+      doorName: door.name,
+      glassId,
+      handleId,
+      finishId,
+      lockId,
+      screenId,
+      sidelightId,
+      jambId,
+    };
+    const next = [entry, ...savedDoors.filter((item) => item.doorId !== entry.doorId)].slice(0, 12);
+    setSavedDoors(next);
+    window.localStorage.setItem(savedDesignsKey, JSON.stringify(next));
+    setSaveNote("Saved on this browser. Open Design Your Door on this device to see it again.");
+  }
   const displayedDoors = filteredDoors.slice(0, visibleDoors);
 
   function selectDoor(id: string) {
@@ -123,6 +263,15 @@ export function DoorConfigurator() {
     form.set("handleName", handle.name);
     form.set("finishId", finish.id);
     form.set("finishName", finish.name);
+    form.set("lockId", lock.id);
+    form.set("lockName", lock.name);
+    form.set("screenId", screen.id);
+    form.set("screenName", screen.name);
+    form.set("sidelightId", sidelight.id);
+    form.set("sidelightName", sidelight.name);
+    form.set("jambId", jamb.id);
+    form.set("jambName", jamb.name);
+    form.set("doorImagePath", door.imageUrl);
     form.set("sourceUrl", window.location.href);
 
     const query = new URLSearchParams(window.location.search);
@@ -181,15 +330,6 @@ export function DoorConfigurator() {
               src={door.imageUrl}
               unoptimized
             />
-            <div className={`glass-lite glass-lite-${glass.id}`} aria-hidden="true">
-              <Image
-                alt=""
-                fill
-                sizes="180px"
-                src={glass.thumbnailUrl || `/glass/${glass.id}.svg`}
-                unoptimized
-              />
-            </div>
             <div className="preview-label">
               <p>{door.style}</p>
               <h2>{door.name}</h2>
@@ -210,9 +350,10 @@ export function DoorConfigurator() {
             </span>
           </div>
           <p className="preview-disclaimer">
-            The photo is the selected door style. The center sample shows the
-            glass texture. Finish and hardware are confirmed by the Artistic
-            Entrances team before a mockup is made.
+            The photo is the door you selected, in the finish shown on that
+            image. Glass, handle, lock, screen, sidelights, and jamb are listed
+            beside it. Hand-forged iron can vary slightly from the photo. A
+            custom order follows the drawing you approve.
           </p>
         </aside>
 
@@ -224,6 +365,32 @@ export function DoorConfigurator() {
               <p className="section-copy">
                 Start with the silhouette and ironwork that feels right for your
                 home.
+              </p>
+              <div className="layout-filter" role="group" aria-label="Door type">
+                {(
+                  [
+                    ["all", "All doors"],
+                    ["single", "Single doors"],
+                    ["double", "Double doors"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    aria-pressed={layoutFilter === id}
+                    className={layoutFilter === id ? "selected" : ""}
+                    key={id}
+                    onClick={() => {
+                      setLayoutFilter(id);
+                      setVisibleDoors(24);
+                    }}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="door-results-copy">
+                Single and double groups come from the catalog photo. A wide
+                single door can sit with the doubles until the list is reviewed.
               </p>
               <label className="door-search">
                 Search doors
@@ -264,6 +431,13 @@ export function DoorConfigurator() {
                   </button>
                 ))}
               </div>
+              <SavedDoorList
+                doors={savedDoors}
+                onOpen={(design) => {
+                  applyDesign(design);
+                  setSaveNote(`Opened ${design.doorName}.`);
+                }}
+              />
               {visibleDoors < filteredDoors.length && (
                 <button
                   className="secondary-action"
@@ -351,6 +525,30 @@ export function DoorConfigurator() {
                     ))}
                 </div>
               </fieldset>
+              <OptionGroup
+                label="Lock"
+                onSelect={setLockId}
+                options={lockOptions}
+                selectedId={lockId}
+              />
+              <OptionGroup
+                label="Screen"
+                onSelect={setScreenId}
+                options={screenOptions}
+                selectedId={screenId}
+              />
+              <OptionGroup
+                label="Sidelights"
+                onSelect={setSidelightId}
+                options={sidelightOptions}
+                selectedId={sidelightId}
+              />
+              <OptionGroup
+                label="Door jamb"
+                onSelect={setJambId}
+                options={jambOptions}
+                selectedId={jambId}
+              />
               <div className="button-row">
                 <button className="text-action" onClick={() => goTo("door")}>
                   Back
@@ -384,11 +582,33 @@ export function DoorConfigurator() {
                     {finish.name}
                   </strong>
                 </div>
+                <SummaryRow label="Lock" value={lock.name} />
+                <SummaryRow label="Screen" value={screen.name} />
+                <SummaryRow label="Sidelights" value={sidelight.name} />
+                <SummaryRow label="Door jamb" value={jamb.name} />
               </div>
               <p className="section-copy">
-                An expert will confirm measurements, compatibility, delivery,
-                and final pricing with you.
+                After the drawing is approved, a custom door usually takes 8 to
+                16 weeks. Doors already in stock are at artisticentrances.shop.
+                An expert confirms measurements, compatibility, and price before
+                anything is built.
               </p>
+              <div className="save-row">
+                <button className="secondary-action" onClick={saveDesign} type="button">
+                  Save This Door
+                </button>
+                <button
+                  className="text-action"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(window.location.href);
+                    setSaveNote("Link copied. Open it on this browser to return to the design.");
+                  }}
+                  type="button"
+                >
+                  Copy Link
+                </button>
+              </div>
+              {saveNote ? <p className="save-note">{saveNote}</p> : null}
               <div className="button-row">
                 <button className="text-action" onClick={() => goTo("details")}>
                   Edit Design
@@ -526,8 +746,8 @@ export function DoorConfigurator() {
               <h2>Thank You</h2>
               <p>
                 {mockupEligible
-                  ? "Your door, glass, handle, and finish are with Artistic Entrances. This greater Las Vegas request is eligible for a mockup of the design you submitted."
-                  : "Your request is with Artistic Entrances. Projects outside greater Las Vegas are followed up in a conversation, without an automated mockup."}
+                  ? "Your door photo, glass, handle, finish, and the other choices are with Artistic Entrances. This greater Las Vegas request is eligible for a mockup of the design you submitted."
+                  : "Your door photo and selections are with Artistic Entrances. Projects outside greater Las Vegas are followed up in a conversation, without an automated mockup."}
               </p>
             </div>
           )}
@@ -615,6 +835,61 @@ function OptionThumb({ src }: { src?: string | null }) {
     <span className="option-thumb">
       <Image alt="" fill sizes="54px" src={src} unoptimized />
     </span>
+  );
+}
+
+function knownId<T extends { id: string }>(options: readonly T[], id: string | null) {
+  if (!id) return undefined;
+  return options.some((option) => option.id === id) ? id : undefined;
+}
+
+function readSavedDesigns(): SavedDesign[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(savedDesignsKey) || "[]") as SavedDesign[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function readCurrentDesign(): SavedDesign | null {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(currentDesignKey) || "null") as SavedDesign | null;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function SavedDoorList({
+  doors,
+  onOpen,
+}: {
+  doors: SavedDesign[];
+  onOpen: (design: SavedDesign) => void;
+}) {
+  if (doors.length === 0) return null;
+  return (
+    <div className="saved-doors">
+      <h3>Saved on this browser</h3>
+      <ul>
+        {doors.map((design) => (
+          <li key={design.id}>
+            <button onClick={() => onOpen(design)} type="button">
+              <strong>{design.doorName}</strong>
+              <small>
+                {new Intl.DateTimeFormat("en-US", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                  timeZone: "America/Denver",
+                }).format(new Date(design.savedAt))}{" "}
+                MT
+              </small>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

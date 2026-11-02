@@ -9,6 +9,12 @@ export const ghlFieldIds = {
   serviceArea: "EzMLpWUuTKfGEidVXlSl",
   mockupEligible: "GvQY0CF4ViOuqhrU3EDg",
   leadType: "uMaq7GNRqRehzsaFYQRd",
+  doorImage: "SUkFuAifExggDWD7gUOp",
+  doorImageUrl: "Lrq4JtFkAApDRTYB9DBT",
+  lock: "yP1bPNDkogATKskSh4W4",
+  screen: "RZB0VEckdMPdYIOWoDc3",
+  sidelights: "9IBhVcOH3Em5YsCtPN2z",
+  jamb: "6gHTr2PTXQAdrpTIXWfu",
 } as const;
 
 export type LeadRecord = {
@@ -30,6 +36,15 @@ export type LeadRecord = {
   handleName: string;
   finishId: string;
   finishName: string;
+  lockId: string;
+  lockName: string;
+  screenId: string;
+  screenName: string;
+  sidelightId: string;
+  sidelightName: string;
+  jambId: string;
+  jambName: string;
+  doorImageUrl: string;
   sourceUrl: string;
   utmSource: string;
   utmMedium: string;
@@ -79,6 +94,11 @@ export function buildSummary(lead: Omit<LeadRecord, "summary" | "tags">) {
     lead.glassName ? `Glass: ${lead.glassName} (${lead.glassId})` : "",
     lead.handleName ? `Handle: ${lead.handleName} (${lead.handleId})` : "",
     lead.finishName ? `Finish: ${lead.finishName} (${lead.finishId})` : "",
+    lead.lockName ? `Lock: ${lead.lockName}` : "",
+    lead.screenName ? `Screen: ${lead.screenName}` : "",
+    lead.sidelightName ? `Sidelights: ${lead.sidelightName}` : "",
+    lead.jambName ? `Door jamb: ${lead.jambName}` : "",
+    lead.doorImageUrl ? `Door image: ${lead.doorImageUrl}` : "",
     lead.customerType ? `Customer type: ${lead.customerType}` : "",
     lead.timeline ? `Timeline: ${lead.timeline}` : "",
     `ZIP: ${lead.zip}`,
@@ -95,7 +115,10 @@ export function buildSummary(lead: Omit<LeadRecord, "summary" | "tags">) {
   return lines.filter(Boolean).join("\n");
 }
 
-export async function deliverToGoHighLevel(lead: LeadRecord) {
+export async function deliverToGoHighLevel(
+  lead: LeadRecord,
+  doorImage?: { bytes: Buffer; filename: string },
+) {
   const token = process.env.GHL_PRIVATE_INTEGRATION_TOKEN;
   if (!token) return { ok: false as const, reason: "missing-token" };
 
@@ -125,6 +148,11 @@ export async function deliverToGoHighLevel(lead: LeadRecord) {
         field(ghlFieldIds.serviceArea, lead.serviceArea),
         field(ghlFieldIds.mockupEligible, lead.mockupEligible ? "Yes" : "No"),
         field(ghlFieldIds.leadType, lead.leadType),
+        field(ghlFieldIds.doorImageUrl, lead.doorImageUrl),
+        field(ghlFieldIds.lock, lead.lockName),
+        field(ghlFieldIds.screen, lead.screenName),
+        field(ghlFieldIds.sidelights, lead.sidelightName),
+        field(ghlFieldIds.jamb, lead.jambName),
       ],
     }),
     signal: AbortSignal.timeout(15_000),
@@ -154,5 +182,40 @@ export async function deliverToGoHighLevel(lead: LeadRecord) {
   );
 
   if (!tags.ok) return { ok: false as const, reason: `ghl-tags-${tags.status}` };
+
+  if (doorImage) {
+    const uploaded = await uploadDoorImage(token, contactId, doorImage);
+    if (!uploaded) return { ok: false as const, reason: "ghl-image", contactId };
+  }
+
   return { ok: true as const, contactId };
+}
+
+async function uploadDoorImage(
+  token: string,
+  contactId: string,
+  doorImage: { bytes: Buffer; filename: string },
+) {
+  const locationId = process.env.GHL_LOCATION_ID || business.ghlLocationId;
+  const fileId = crypto.randomUUID();
+  const body = new FormData();
+  body.append(
+    `${ghlFieldIds.doorImage}_${fileId}`,
+    new Blob([new Uint8Array(doorImage.bytes)], { type: "image/jpeg" }),
+    doorImage.filename,
+  );
+  const response = await fetch(
+    `https://services.leadconnectorhq.com/forms/upload-custom-files?contactId=${encodeURIComponent(contactId)}&locationId=${encodeURIComponent(locationId)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        Version: "2021-07-28",
+      },
+      body,
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+  return response.ok;
 }

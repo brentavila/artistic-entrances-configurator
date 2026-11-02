@@ -1,4 +1,5 @@
 import { FaqSection } from "@/components/FaqSection";
+import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { JsonLd } from "@/components/JsonLd";
 import { lasVegasFaqs } from "@/content/faqs";
 import { business, serviceCities } from "@/lib/business";
@@ -74,6 +75,7 @@ export default function LasVegasPage() {
         </a>
       </section>
 
+      <LeadTimeNote />
       <FaqSection
         heading="Las Vegas Iron Door Questions"
         intro="Service area, showroom location, and what to expect on a local project."

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { DoorConfigurator } from "@/components/DoorConfigurator";
+import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
 import { designFaqs } from "@/content/faqs";
@@ -26,16 +27,17 @@ export default function DesignPage() {
         <p className="eyebrow">Door designer</p>
         <h1>Design Your Custom Iron Door</h1>
         <p>
-          Pick a door style, then choose the glass, handle, and finish. The
-          preview shows the door and a sample of the glass. Submit your contact
-          details to send the design to Artistic Entrances. Homeowners in greater
-          Las Vegas are eligible for a generated mockup. Requests from outside
-          that area go to a conversational follow-up instead.
+          Pick a door style, then record the glass, handle, finish, lock,
+          screen, sidelights, and jamb. The photo stays as it was taken. Save
+          the design on this browser, or copy the link, and send it with your
+          contact details. Greater Las Vegas requests can include a mockup.
+          Requests from outside that area go to a conversational follow-up.
         </p>
       </section>
       <Suspense fallback={<p className="page-loading">Loading the door designer…</p>}>
         <DoorConfigurator />
       </Suspense>
+      <LeadTimeNote />
       <FaqSection
         heading="Designer Questions"
         intro="What the preview means, which glass you can choose, and what happens after you send a design."

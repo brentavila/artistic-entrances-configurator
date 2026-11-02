@@ -1,4 +1,5 @@
 import { FeaturedDoors } from "@/components/FeaturedDoors";
+import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
 import { homeFaqs } from "@/content/faqs";
@@ -133,6 +134,7 @@ export default function HomePage() {
         </ul>
       </section>
 
+      <LeadTimeNote />
       <FaqSection
         heading="Custom Iron Door Questions"
         intro="Straight answers for homeowners comparing iron entry doors in Las Vegas."

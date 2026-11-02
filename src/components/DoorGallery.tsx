@@ -6,21 +6,49 @@ import { catalog } from "@/lib/catalog";
 
 export function DoorGallery() {
   const [query, setQuery] = useState("");
+  const [layout, setLayout] = useState<"all" | "single" | "double">("all");
   const [visible, setVisible] = useState(24);
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return catalog.doors;
-    return catalog.doors.filter((door) =>
-      [door.id, door.name, door.slug, door.style, door.configuration]
+    return catalog.doors.filter((door) => {
+      if (layout !== "all" && door.layout !== layout) return false;
+      if (!needle) return true;
+      return [door.id, door.name, door.slug, door.style, door.configuration, door.layout]
         .join(" ")
         .toLowerCase()
-        .includes(needle),
-    );
-  }, [query]);
+        .includes(needle);
+    });
+  }, [layout, query]);
   const shown = filtered.slice(0, visible);
 
   return (
     <section className="gallery-section">
+      <div className="layout-filter" role="group" aria-label="Door type">
+        {(
+          [
+            ["all", "All doors"],
+            ["single", "Single doors"],
+            ["double", "Double doors"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            aria-pressed={layout === id}
+            className={layout === id ? "selected" : ""}
+            key={id}
+            onClick={() => {
+              setLayout(id);
+              setVisible(24);
+            }}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="door-results-copy">
+        Single and double groups come from the catalog photo. A wide single
+        door can sit with the doubles until the list is reviewed.
+      </p>
       <label className="door-search">
         Search the iron door gallery
         <input

@@ -94,6 +94,12 @@ GoHighLevel contact fields on location `uK4q8lpwDpm1J32DZxO4`:
 - Configurator Service Area `EzMLpWUuTKfGEidVXlSl`
 - Mockup Eligible `GvQY0CF4ViOuqhrU3EDg`
 - Configurator Lead Type `uMaq7GNRqRehzsaFYQRd`
+- Configurator Door Image `SUkFuAifExggDWD7gUOp` (file)
+- Configurator Door Image URL `Lrq4JtFkAApDRTYB9DBT`
+- Configurator Lock `yP1bPNDkogATKskSh4W4`
+- Configurator Screen `RZB0VEckdMPdYIOWoDc3`
+- Configurator Sidelights `9IBhVcOH3Em5YsCtPN2z`
+- Configurator Jamb `6gHTr2PTXQAdrpTIXWfu`
 
 n8n is the right place for the conversational follow-up outside Las Vegas and, later, the mockup image. It is not required to render the pages. Private platform credentials stay in n8n or the deployment secret store. The upsert must not send a `tags` array, because GoHighLevel replaces every tag on the contact. Add tags with the separate add-tags call.
 

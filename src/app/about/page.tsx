@@ -1,4 +1,5 @@
 import { FaqSection } from "@/components/FaqSection";
+import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { JsonLd } from "@/components/JsonLd";
 import { aboutFaqs } from "@/content/faqs";
 import { business } from "@/lib/business";
@@ -47,12 +48,25 @@ export default function AboutPage() {
           hardware prep, and whether white-glove delivery or installation is part
           of the Las Vegas project.
         </p>
+        <h2>How the Doors Are Built</h2>
+        <ul className="spec-list">
+          <li>Heavy 12-gauge steel, finished with spray paint. Some designs add an aluminum skin for weather resistance.</li>
+          <li>Sizes are made for the opening, including sizes outside the standard set.</li>
+          <li>Solid iron, with glass inserts on the designs that use them.</li>
+          <li>Scrollwork on wrought-iron styles is formed from 5/8-inch steel.</li>
+          <li>Dual-pane tempered glass is standard. Triple-pane hurricane impact glass is available when the opening needs it.</li>
+          <li>High-security lock hardware.</li>
+          <li>Two layers of insulation for temperature and sound.</li>
+          <li>A five-year warranty covers manufacturing defects.</li>
+          <li>Have the door installed by a professional, and leave about an inch and a half of clearance so it swings freely.</li>
+        </ul>
         <h2>Where to Visit</h2>
         <p>
           {business.name}, {business.street}, {business.city}, {business.region}{" "}
           {business.postalCode}. {business.hoursLabel}. {business.phoneDisplay}.
         </p>
       </section>
+      <LeadTimeNote />
       <FaqSection
         heading="About the Company"
         intro="What Artistic Entrances makes and how a project begins."

@@ -66,6 +66,11 @@ const normalizeLead = node({
           { id: "service-area", name: "serviceArea", value: expr('{{ $json.body?.serviceArea ?? $json.serviceArea ?? "" }}'), type: "string" },
           { id: "mockup", name: "mockupEligible", value: expr('{{ $json.body?.mockupEligible ?? $json.mockupEligible ?? "no" }}'), type: "string" },
           { id: "tags", name: "tags", value: expr('{{ $json.body?.tags ?? $json.tags ?? "" }}'), type: "string" },
+          { id: "lock", name: "lock", value: expr('{{ $json.body?.lockName ?? $json.lockName ?? "" }}'), type: "string" },
+          { id: "screen", name: "screen", value: expr('{{ $json.body?.screenName ?? $json.screenName ?? "" }}'), type: "string" },
+          { id: "sidelights", name: "sidelights", value: expr('{{ $json.body?.sidelightName ?? $json.sidelightName ?? "" }}'), type: "string" },
+          { id: "jamb", name: "jamb", value: expr('{{ $json.body?.jambName ?? $json.jambName ?? "" }}'), type: "string" },
+          { id: "door-image-url", name: "doorImageUrl", value: expr('{{ $json.body?.doorImageUrl ?? $json.doorImageUrl ?? "" }}'), type: "string" },
         ],
       },
     },
@@ -107,7 +112,7 @@ const upsertContact = node({
       sendBody: true,
       contentType: "json",
       specifyBody: "json",
-      jsonBody: expr('{{ ({ locationId: "uK4q8lpwDpm1J32DZxO4", firstName: $("Normalize Lead").item.json.firstName, lastName: $("Normalize Lead").item.json.lastName, email: $("Normalize Lead").item.json.email, phone: $("Normalize Lead").item.json.phone, postalCode: $("Normalize Lead").item.json.zip, country: "US", source: "website-" + $("Normalize Lead").item.json.leadType, customFields: [ { id: "PK0Ai5QtLvVs6SzBE2A1", field_value: $("Normalize Lead").item.json.door }, { id: "hYPtRh0Yik7MyHOCtxOU", field_value: $("Normalize Lead").item.json.glass }, { id: "0jVumOur6yFOIBsu8K1W", field_value: $("Normalize Lead").item.json.handle }, { id: "dRrt5xOac79sc5ciVQ8l", field_value: $("Normalize Lead").item.json.finish }, { id: "Pz0IOnUAR0GsdYWzxM6n", field_value: $("Normalize Lead").item.json.summary }, { id: "EzMLpWUuTKfGEidVXlSl", field_value: $("Normalize Lead").item.json.serviceArea }, { id: "GvQY0CF4ViOuqhrU3EDg", field_value: $("Normalize Lead").item.json.mockupEligible }, { id: "uMaq7GNRqRehzsaFYQRd", field_value: $("Normalize Lead").item.json.leadType } ] }) }}'),
+      jsonBody: expr('{{ ({ locationId: "uK4q8lpwDpm1J32DZxO4", firstName: $("Normalize Lead").item.json.firstName, lastName: $("Normalize Lead").item.json.lastName, email: $("Normalize Lead").item.json.email, phone: $("Normalize Lead").item.json.phone, postalCode: $("Normalize Lead").item.json.zip, country: "US", source: "website-" + $("Normalize Lead").item.json.leadType, customFields: [ { id: "PK0Ai5QtLvVs6SzBE2A1", field_value: $("Normalize Lead").item.json.door }, { id: "hYPtRh0Yik7MyHOCtxOU", field_value: $("Normalize Lead").item.json.glass }, { id: "0jVumOur6yFOIBsu8K1W", field_value: $("Normalize Lead").item.json.handle }, { id: "dRrt5xOac79sc5ciVQ8l", field_value: $("Normalize Lead").item.json.finish }, { id: "Pz0IOnUAR0GsdYWzxM6n", field_value: $("Normalize Lead").item.json.summary }, { id: "EzMLpWUuTKfGEidVXlSl", field_value: $("Normalize Lead").item.json.serviceArea }, { id: "GvQY0CF4ViOuqhrU3EDg", field_value: $("Normalize Lead").item.json.mockupEligible }, { id: "uMaq7GNRqRehzsaFYQRd", field_value: $("Normalize Lead").item.json.leadType }, { id: "Lrq4JtFkAApDRTYB9DBT", field_value: $("Normalize Lead").item.json.doorImageUrl }, { id: "yP1bPNDkogATKskSh4W4", field_value: $("Normalize Lead").item.json.lock }, { id: "RZB0VEckdMPdYIOWoDc3", field_value: $("Normalize Lead").item.json.screen }, { id: "9IBhVcOH3Em5YsCtPN2z", field_value: $("Normalize Lead").item.json.sidelights }, { id: "6gHTr2PTXQAdrpTIXWfu", field_value: $("Normalize Lead").item.json.jamb } ] }) }}'),
     },
     credentials: { httpHeaderAuth: ghlCredential },
   },
@@ -149,9 +154,56 @@ const reply = node({
   output: [{ json: { ok: true } }],
 });
 
+const restoreImage = node({
+  type: "n8n-nodes-base.code",
+  version: 2,
+  config: {
+    name: "Restore Door Image",
+    parameters: {
+      mode: "runOnceForEachItem",
+      language: "javaScript",
+      jsCode:
+        'const contactId = $("Upsert GoHighLevel Contact").item.json.contact.id;\nconst source = $("Quote Webhook").item;\nconst doorImage = source.binary && source.binary.doorImage;\nconst item = { json: { contactId, hasDoorImage: Boolean(doorImage) } };\nif (doorImage) item.binary = { doorImage };\nreturn item;',
+    },
+  },
+  output: [{ json: { contactId: "contact-id", hasDoorImage: true } }],
+});
+
+const uploadImage = node({
+  type: "n8n-nodes-base.httpRequest",
+  version: 4.5,
+  config: {
+    name: "Upload Door Image",
+    onError: "continueRegularOutput",
+    parameters: {
+      method: "POST",
+      url: expr(
+        'https://services.leadconnectorhq.com/forms/upload-custom-files?contactId={{ $json.contactId }}&locationId=uK4q8lpwDpm1J32DZxO4',
+      ),
+      authentication: "genericCredentialType",
+      genericAuthType: "httpHeaderAuth",
+      sendHeaders: true,
+      headerParameters: { parameters: [{ name: "Version", value: "2021-07-28" }] },
+      sendBody: true,
+      contentType: "multipart-form-data",
+      bodyParameters: {
+        parameters: [
+          {
+            parameterType: "formBinaryData",
+            name: expr('{{ "SUkFuAifExggDWD7gUOp_" + $json.contactId }}'),
+            inputDataFieldName: "doorImage",
+          },
+        ],
+      },
+    },
+    credentials: { httpHeaderAuth: ghlCredential },
+  },
+  output: [{ json: { contact: { id: "contact-id" } } }],
+});
+
 const note = sticky(
   "Saves the website quote, catalog, or contact form on the Artistic Entrances GoHighLevel contact. Tags are added in a second call so existing tags are kept. Outside Las Vegas leads are tagged conversational-follow-up. Mockup generation is not in this workflow yet.",
-  [quoteWebhook, normalizeLead, upsertContact, addTags, reply],
+  [quoteWebhook, normalizeLead, upsertContact, addTags, restoreImage, uploadImage, reply],
 );
 
 export default workflow("artistic-entrances-website-leads", "Artistic Entrances Website Leads")
@@ -159,5 +211,7 @@ export default workflow("artistic-entrances-website-leads", "Artistic Entrances 
   .to(normalizeLead)
   .to(upsertContact)
   .to(addTags)
+  .to(restoreImage)
+  .to(uploadImage)
   .to(reply)
   .add(note);

@@ -1,4 +1,5 @@
 import { DoorGallery } from "@/components/DoorGallery";
+import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
 import { galleryFaqs } from "@/content/faqs";
@@ -31,6 +32,7 @@ export default function GalleryPage() {
         </p>
       </section>
       <DoorGallery />
+      <LeadTimeNote />
       <FaqSection
         heading="Gallery Questions"
         intro="How to use the door photos when you are comparing iron entries."

@@ -1,3 +1,4 @@
+import { PaymentMarks } from "@/components/PaymentMarks";
 import { business } from "@/lib/business";
 
 export function SiteFooter() {
@@ -30,7 +31,20 @@ export function SiteFooter() {
         <a href="/contact">Contact</a>
         <a href="/privacy">Privacy</a>
       </nav>
-      <p>Custom designs require final review and approval before production.</p>
+      <div className="footer-notes">
+        <p>
+          Hand-forged iron can vary a little in pattern and color from the
+          photo. Pictures are a guide. A custom order follows the drawing you
+          approve, and those small differences come from making the piece by
+          hand.
+        </p>
+        <p>
+          After that drawing is approved, production usually takes 8 to 16
+          weeks. In-stock doors are at{" "}
+          <a href="https://artisticentrances.shop">artisticentrances.shop</a>.
+        </p>
+        <PaymentMarks />
+      </div>
     </footer>
   );
 }

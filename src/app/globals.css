@@ -953,6 +953,95 @@ footer {
   padding: 48px 5vw;
 }
 
+.footer-notes,
+.payment-banner {
+  grid-column: 1 / -1;
+}
+
+.payment-banner ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+
+.payment-banner li {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+}
+
+.lead-time,
+.spec-list {
+  margin: 0 auto;
+  max-width: 980px;
+}
+
+.lead-time {
+  padding: 12px 5vw 36px;
+}
+
+.spec-list {
+  color: var(--ink-soft);
+  line-height: 1.6;
+  padding-left: 18px;
+}
+
+.layout-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.layout-filter button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 8px 14px;
+}
+
+.layout-filter button.selected {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.saved-doors h3,
+.save-note {
+  font-size: 14px;
+}
+
+.saved-doors ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 8px 0 16px;
+  padding: 0;
+}
+
+.saved-doors button,
+.save-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.saved-doors button {
+  background: var(--cream);
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  flex-direction: column;
+  padding: 10px 12px;
+  text-align: left;
+}
+
 .footer-brand small,
 footer > p {
   color: #8f897e;

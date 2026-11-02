@@ -46,6 +46,9 @@ const defaultHandleIds = optionsSource.handles?.map((item) => item.id) ?? [
   "round-pull",
   "heritage-lever",
 ];
+const previousDoors = new Map(
+  (optionsSource.doors ?? []).map((door) => [door.id, door]),
+);
 const defaultFinishIds = optionsSource.finishes?.map((item) => item.id) ?? [
   "midnight-black",
   "aged-bronze",
@@ -73,12 +76,14 @@ for (const slug of slugs) {
   if (!imageUrl) continue;
 
   const name = humanName(slug);
+  const previous = previousDoors.get(slug);
   const door = {
     id: slug,
     name,
     slug,
     style: "Custom Iron",
-    configuration: "Custom Door",
+    configuration: previous?.configuration ?? "Custom Door",
+    layout: previous?.layout ?? "single",
     imageUrl,
     thumbnailUrl,
     alt: `${name} custom iron entry door`,

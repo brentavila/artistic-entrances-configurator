@@ -1,4 +1,5 @@
 import { FaqSection } from "@/components/FaqSection";
+import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { JsonLd } from "@/components/JsonLd";
 import { LeadForm } from "@/components/LeadForm";
 import { catalogFaqs } from "@/content/faqs";
@@ -52,6 +53,7 @@ export default function CatalogPage() {
           submitLabel="Request the Catalog"
         />
       </section>
+      <LeadTimeNote />
       <FaqSection
         heading="Catalog Questions"
         intro="What the catalog request does, and what it does not include."
