@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { catalog, optionById } from "@/lib/catalog";
+import { isGreaterLasVegasZip, zip5 } from "@/lib/service-area";
 
 declare global {
   interface Window {
@@ -25,8 +27,14 @@ function track(event: string, values: Record<string, unknown> = {}) {
 }
 
 export function DoorConfigurator() {
+  const params = useSearchParams();
+  const requestedDoor = params.get("door");
+  const startingDoor =
+    catalog.doors.find(
+      (item) => item.id === requestedDoor || item.slug === requestedDoor,
+    ) ?? catalog.doors[0];
   const [step, setStep] = useState<Step>("door");
-  const [doorId, setDoorId] = useState(catalog.doors[0].id);
+  const [doorId, setDoorId] = useState(startingDoor.id);
   const [glassId, setGlassId] = useState(catalog.glass[0].id);
   const [handleId, setHandleId] = useState(catalog.handles[0].id);
   const [finishId, setFinishId] = useState(catalog.finishes[0].id);
@@ -34,7 +42,9 @@ export function DoorConfigurator() {
     "idle",
   );
   const [message, setMessage] = useState("");
-  const [doorQuery, setDoorQuery] = useState("");
+  const [mockupEligible, setMockupEligible] = useState(false);
+  const [zipHint, setZipHint] = useState("");
+  const [doorQuery, setDoorQuery] = useState(requestedDoor ? startingDoor.name : "");
   const [visibleDoors, setVisibleDoors] = useState(24);
 
   const door = useMemo(
@@ -125,9 +135,13 @@ export function DoorConfigurator() {
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
-      const result = (await response.json()) as { message?: string };
+      const result = (await response.json()) as {
+        message?: string;
+        mockupEligible?: boolean;
+      };
       if (!response.ok) throw new Error(result.message || "Unable to send quote");
 
+      setMockupEligible(Boolean(result.mockupEligible));
       setStatus("success");
       track("generate_lead", { door_id: door.id, lead_type: "custom_door" });
     } catch (error) {
@@ -167,6 +181,15 @@ export function DoorConfigurator() {
               src={door.imageUrl}
               unoptimized
             />
+            <div className={`glass-lite glass-lite-${glass.id}`} aria-hidden="true">
+              <Image
+                alt=""
+                fill
+                sizes="180px"
+                src={glass.thumbnailUrl || `/glass/${glass.id}.svg`}
+                unoptimized
+              />
+            </div>
             <div className="preview-label">
               <p>{door.style}</p>
               <h2>{door.name}</h2>
@@ -177,12 +200,19 @@ export function DoorConfigurator() {
               <FinishThumb finish={finish} size="sm" />
               {finish.name}
             </span>
-            <span>{glass.name} Glass</span>
-            <span>{handle.name}</span>
+            <span>
+              <OptionThumb src={glass.thumbnailUrl} />
+              {glass.name} Glass
+            </span>
+            <span>
+              <OptionThumb src={handle.thumbnailUrl} />
+              {handle.name}
+            </span>
           </div>
           <p className="preview-disclaimer">
-            Preview shows the selected door style. Finish, glass, and hardware
-            selections are confirmed by the Artistic Entrances team.
+            The photo is the selected door style. The center sample shows the
+            glass texture. Finish and hardware are confirmed by the Artistic
+            Entrances team before a mockup is made.
           </p>
         </aside>
 
@@ -416,9 +446,22 @@ export function DoorConfigurator() {
                       pattern="[0-9]{5}(-[0-9]{4})?"
                       required
                       autoComplete="postal-code"
+                      onChange={(event) => {
+                        const zip = zip5(event.target.value);
+                        if (zip.length < 5) {
+                          setZipHint("");
+                          return;
+                        }
+                        setZipHint(
+                          isGreaterLasVegasZip(zip)
+                            ? "Greater Las Vegas — this request can include a door mockup after you submit."
+                            : "Outside greater Las Vegas — the team will follow up by conversation instead of an automated mockup.",
+                        );
+                      }}
                     />
                   </label>
                 </div>
+                {zipHint ? <p className="zip-hint">{zipHint}</p> : null}
                 <div className="field-row">
                   <label>
                     I am a
@@ -482,8 +525,9 @@ export function DoorConfigurator() {
               <p className="eyebrow">Design received</p>
               <h2>Thank You</h2>
               <p>
-                Your custom door selections have been sent to Artistic
-                Entrances. A team member will review the details and contact you.
+                {mockupEligible
+                  ? "Your door, glass, handle, and finish are with Artistic Entrances. This greater Las Vegas request is eligible for a mockup of the design you submitted."
+                  : "Your request is with Artistic Entrances. Projects outside greater Las Vegas are followed up in a conversation, without an automated mockup."}
               </p>
             </div>
           )}
@@ -500,7 +544,12 @@ function OptionGroup({
   onSelect,
 }: {
   label: string;
-  options: Array<{ id: string; name: string; description: string }>;
+  options: Array<{
+    id: string;
+    name: string;
+    description: string;
+    thumbnailUrl?: string | null;
+  }>;
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
@@ -516,7 +565,8 @@ function OptionGroup({
             onClick={() => onSelect(option.id)}
             type="button"
           >
-            <span>
+            <span className="option-copy">
+              {option.thumbnailUrl ? <OptionThumb src={option.thumbnailUrl} /> : null}
               <strong>{option.name}</strong>
               <small>{option.description}</small>
             </span>
@@ -556,6 +606,15 @@ function FinishThumb({
       className={`finish-thumb finish-thumb-${size} finish-thumb-hex`}
       style={{ backgroundColor: finish.hex }}
     />
+  );
+}
+
+function OptionThumb({ src }: { src?: string | null }) {
+  if (!src) return null;
+  return (
+    <span className="option-thumb">
+      <Image alt="" fill sizes="54px" src={src} unoptimized />
+    </span>
   );
 }
 

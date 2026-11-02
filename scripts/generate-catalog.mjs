@@ -26,10 +26,11 @@ for (const asset of manifest.assets) {
   const slug = slugFromAssetPath(asset.relativePath);
   if (!slug) continue;
 
+  const siteUrl = `/media/${asset.relativePath.replace(/^\/+/, "")}`;
   if (asset.relativePath.startsWith("doors/full/")) {
-    fullAssets.set(slug, asset.publicUrl);
+    fullAssets.set(slug, siteUrl);
   } else if (asset.relativePath.startsWith("doors/thumbnails/")) {
-    thumbAssets.set(slug, asset.publicUrl);
+    thumbAssets.set(slug, siteUrl);
   }
 }
 
