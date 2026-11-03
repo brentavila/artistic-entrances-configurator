@@ -1,6 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import { business } from "@/lib/business";
 
 const links = [
+  { href: "/projects", label: "Projects" },
   { href: "/gallery", label: "Gallery" },
   { href: "/design-your-door", label: "Design" },
   { href: "/las-vegas-iron-doors", label: "Las Vegas" },
@@ -10,26 +14,30 @@ const links = [
 ];
 
 export function SiteHeader() {
+  const [open, setOpen] = useState(false);
+
   return (
     <header className="site-header">
       <a className="brand" href="/" aria-label="Artistic Entrances home">
-        <span>AE</span>
-        <div>
-          <strong>Artistic Entrances</strong>
-          <small>Las Vegas Iron Doors</small>
-        </div>
+        <img src="/brand/logo-horizontal.png" alt="" width={196} height={95} />
       </a>
-      <nav className="site-nav" aria-label="Primary">
-        <details className="nav-details">
-          <summary>Menu</summary>
-          <div className="nav-links">
-            {links.map((link) => (
-              <a key={link.href} href={link.href}>
-                {link.label}
-              </a>
-            ))}
-          </div>
-        </details>
+      <nav className={open ? "site-nav is-open" : "site-nav"} aria-label="Primary">
+        <button
+          aria-controls="primary-nav"
+          aria-expanded={open}
+          className="nav-toggle"
+          onClick={() => setOpen((value) => !value)}
+          type="button"
+        >
+          {open ? "Close" : "Menu"}
+        </button>
+        <div className="nav-links" id="primary-nav">
+          {links.map((link) => (
+            <a href={link.href} key={link.href} onClick={() => setOpen(false)}>
+              {link.label}
+            </a>
+          ))}
+        </div>
       </nav>
       <a className="header-phone" href={`tel:${business.phoneTel}`}>
         {business.phoneDisplay}

@@ -4,6 +4,7 @@ import { business } from "@/lib/business";
 const paths = [
   "/",
   "/design-your-door",
+  "/projects",
   "/gallery",
   "/las-vegas-iron-doors",
   "/catalog",

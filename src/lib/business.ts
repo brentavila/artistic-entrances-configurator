@@ -21,6 +21,7 @@ export const business = {
   ghlLocationId: "uK4q8lpwDpm1J32DZxO4",
   mapUrl:
     "https://www.google.com/maps/search/?api=1&query=71+N+Pecos+Rd+Ste+110+Las+Vegas+NV+89101",
+  googleProfileUrl: "https://maps.app.goo.gl/1WJQNSXsoGSJSBq7A",
 };
 
 export const serviceCities = [

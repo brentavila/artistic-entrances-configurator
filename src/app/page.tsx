@@ -1,5 +1,7 @@
 import { FeaturedDoors } from "@/components/FeaturedDoors";
+import { GoogleReviews } from "@/components/GoogleReviews";
 import { LeadTimeNote } from "@/components/LeadTimeNote";
+import { ProjectGallery } from "@/components/ProjectGallery";
 import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
 import { homeFaqs } from "@/content/faqs";
@@ -41,13 +43,12 @@ export default function HomePage() {
             <span>Local showroom</span>
           </div>
         </div>
-        <div className="hero-arch" aria-hidden="true">
-          <div className="arch-door">
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
+        <figure className="hero-photo">
+          <img
+            alt="Arched matte-black double iron doors installed under a vine-covered Las Vegas entry"
+            src="/projects/arched-double-entry.webp"
+          />
+        </figure>
       </section>
 
       <section className="intro">
@@ -74,6 +75,23 @@ export default function HomePage() {
           Browse the Full Gallery
         </a>
       </section>
+
+      <section className="page-section">
+        <div className="section-intro">
+          <p className="eyebrow">Installed in Las Vegas</p>
+          <h2>Doors on Real Houses</h2>
+          <p>
+            A few recent entries, patio doors, and hardware details. The full
+            set is on the project gallery.
+          </p>
+        </div>
+        <ProjectGallery limit={3} />
+        <a className="secondary-action section-action" href="/projects">
+          See the Project Gallery
+        </a>
+      </section>
+
+      <GoogleReviews />
 
       <section className="trust-section">
         <div>

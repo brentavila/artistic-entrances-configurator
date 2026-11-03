@@ -1,4 +1,5 @@
 import { FaqSection } from "@/components/FaqSection";
+import { GoogleReviews } from "@/components/GoogleReviews";
 import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { JsonLd } from "@/components/JsonLd";
 import { lasVegasFaqs } from "@/content/faqs";
@@ -66,7 +67,8 @@ export default function LasVegasPage() {
         </p>
         <h2>Visit or Call the Showroom</h2>
         <p>
-          <a href={business.mapUrl}>Get directions to {business.street}</a>. Email{" "}
+          <a href={business.googleProfileUrl}>See the Google reviews and map</a>
+          {" "}or <a href={business.mapUrl}>get directions to {business.street}</a>. Email{" "}
           <a href={`mailto:${business.email}`}>{business.email}</a> with door
           numbers, plans, or a photo of the current entry.
         </p>
@@ -75,6 +77,7 @@ export default function LasVegasPage() {
         </a>
       </section>
 
+      <GoogleReviews heading="Reviews from the Las Vegas Showroom" />
       <LeadTimeNote />
       <FaqSection
         heading="Las Vegas Iron Door Questions"

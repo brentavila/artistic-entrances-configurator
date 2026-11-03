@@ -28,7 +28,8 @@ export default function GalleryPage() {
         <p>
           Search the Artistic Entrances door photos by number or name. Open a
           door to choose clear, frosted, rain, or Aquatex glass and send that
-          design with your quote request.
+          design with your quote request. For doors already installed on
+          houses, see the <a href="/projects">project gallery</a>.
         </p>
       </section>
       <DoorGallery />

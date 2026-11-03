@@ -68,6 +68,28 @@ export const lasVegasFaqs: Faq[] = [
   },
 ];
 
+export const projectFaqs: Faq[] = [
+  {
+    question: "Are these photos of doors Artistic Entrances installed?",
+    answer:
+      "Yes. The project gallery shows installed entries, patio doors, glass, and hardware from Artistic Entrances work. The catalog gallery is the larger set of styles you can start a design from.",
+  },
+  {
+    question: "Can my door look like one of these projects?",
+    answer:
+      "Use a project photo as the reference, then choose a catalog door and record glass, handle, finish, lock, screen, sidelights, and jamb. The showroom confirms the opening before anything is built.",
+  },
+  {
+    question: "Do the photos include the smart lock and the screen?",
+    answer:
+      "Some do. One close view shows a keyed lock next to a smart lock and lever handles. Screens, sidelights, and jamb depth are choices in the designer and are confirmed for your wall.",
+  },
+  {
+    question: "Where are the Google reviews from?",
+    answer: `The quotes on this site are from the Artistic Entrances Google Business Profile. The full set is on Google. The showroom phone on this website is ${business.phoneDisplay}.`,
+  },
+];
+
 export const galleryFaqs: Faq[] = [
   {
     question: "Are the gallery doors the only designs available?",

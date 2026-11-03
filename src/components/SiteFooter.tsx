@@ -4,13 +4,9 @@ import { business } from "@/lib/business";
 export function SiteFooter() {
   return (
     <footer className="site-footer">
-      <div className="brand footer-brand">
-        <span>AE</span>
-        <div>
-          <strong>Artistic Entrances</strong>
-          <small>Custom Iron Doors</small>
-        </div>
-      </div>
+      <a className="footer-logo" href="/" aria-label="Artistic Entrances home">
+        <img src="/brand/logo-horizontal.png" alt="Artistic Entrances" width={220} height={106} />
+      </a>
       <address>
         {business.street}
         <br />
@@ -23,6 +19,7 @@ export function SiteFooter() {
         {business.hoursLabel}
       </address>
       <nav aria-label="Footer">
+        <a href="/projects">Projects</a>
         <a href="/gallery">Gallery</a>
         <a href="/design-your-door">Design Your Door</a>
         <a href="/las-vegas-iron-doors">Las Vegas</a>
@@ -42,6 +39,10 @@ export function SiteFooter() {
           After that drawing is approved, production usually takes 8 to 16
           weeks. In-stock doors are at{" "}
           <a href="https://artisticentrances.shop">artisticentrances.shop</a>.
+        </p>
+        <p>
+          Rated 5.0 on Google.{" "}
+          <a href={business.googleProfileUrl}>Read the reviews</a>.
         </p>
         <PaymentMarks />
       </div>

@@ -13,7 +13,10 @@ Glass options: clear, frosted, rain, and Aquatex.
 Customers record a door, glass type, handle, and finish on ${business.siteUrl}/design-your-door.
 Greater Las Vegas quote requests are eligible for a generated mockup after contact details are submitted. Projects outside greater Las Vegas are followed up by conversation and do not receive that mockup.
 
+Installed projects: ${business.siteUrl}/projects
+Door catalog: ${business.siteUrl}/gallery
 Catalog requests: ${business.siteUrl}/catalog
+Google reviews: ${business.googleProfileUrl}
 Las Vegas location page: ${business.siteUrl}/las-vegas-iron-doors
 
 A $500 Amazon gift card is a published offer with the purchase of a qualifying custom iron entry door. Terms apply. It is not an automatic website discount.

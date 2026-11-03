@@ -22,15 +22,24 @@ export default function AboutPage() {
           { name: "About", path: "/about" },
         ])}
       />
-      <section className="page-hero">
-        <p className="eyebrow">The showroom</p>
-        <h1>About Artistic Entrances</h1>
-        <p>
-          Artistic Entrances builds custom iron entry doors for luxury homes,
-          with a showroom in Las Vegas. The work starts with a door you can
-          point to, then glass, hardware, finish, and the measurements of the
-          opening.
-        </p>
+      <section className="page-hero about-hero">
+        <img
+          className="about-mark"
+          src="/brand/logo-mark.png"
+          alt="Artistic Entrances tree mark"
+          width={180}
+          height={192}
+        />
+        <div>
+          <p className="eyebrow">The showroom</p>
+          <h1>About Artistic Entrances</h1>
+          <p>
+            Artistic Entrances builds custom iron entry doors for luxury homes,
+            with a showroom in Las Vegas. The work starts with a door you can
+            point to, then glass, hardware, finish, and the measurements of the
+            opening.
+          </p>
+        </div>
       </section>
       <section className="page-section prose-section">
         <h2>A Door, Then the Details</h2>
