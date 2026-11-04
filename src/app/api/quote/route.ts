@@ -39,6 +39,13 @@ export async function POST(request: Request) {
     );
   }
 
+  for (const field of ["entryPhoto", "entryPhoto2", "entryPhoto3", "entryPhoto4"]) {
+    const photoError = photoMessage(form.get(field));
+    if (photoError) {
+      return NextResponse.json({ message: photoError }, { status: 400 });
+    }
+  }
+
   const email = asText(form.get("email"));
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json(
@@ -47,19 +54,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const photo = form.get("entryPhoto");
-  if (photo instanceof File && photo.size > 0) {
-    const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-    if (!allowedTypes.has(photo.type) || photo.size > 8 * 1024 * 1024) {
-      return NextResponse.json(
-        { message: "Photos must be JPG, PNG, or WebP and under 8 MB." },
-        { status: 400 },
-      );
-    }
-  }
-
   form.set("consentTimestamp", new Date().toISOString());
-  form.set("leadSource", "door-configurator");
+  form.set(
+    "leadSource",
+    asText(form.get("leadSource")) === "entry-planner"
+      ? "entry-planner"
+      : "door-configurator",
+  );
 
   const webhookUrl = process.env.N8N_QUOTE_WEBHOOK_URL;
   const webhookToken = process.env.N8N_QUOTE_WEBHOOK_TOKEN;
@@ -103,4 +104,13 @@ export async function POST(request: Request) {
 
 function asText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function photoMessage(value: FormDataEntryValue | null) {
+  if (!(value instanceof File) || value.size === 0) return null;
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(value.type) || value.size > 8 * 1024 * 1024) {
+    return "Photos must be JPG, PNG, or WebP and under 8 MB.";
+  }
+  return null;
 }

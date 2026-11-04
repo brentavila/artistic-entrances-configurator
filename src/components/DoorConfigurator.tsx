@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { catalog, optionById } from "@/lib/catalog";
 
@@ -184,6 +185,12 @@ export function DoorConfigurator() {
             Preview shows the selected door style. Finish, glass, and hardware
             selections are confirmed by the Artistic Entrances team.
           </p>
+          <Link
+            className="preview-planner-link"
+            href={`/planner?door=${encodeURIComponent(door.id)}`}
+          >
+            Preview this door on your entry
+          </Link>
         </aside>
 
         <div className="options-panel">

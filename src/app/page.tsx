@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DoorConfigurator } from "@/components/DoorConfigurator";
 
 export default function Home() {
@@ -29,9 +30,14 @@ export default function Home() {
             Explore handcrafted iron door styles, choose the details, and share
             your vision with an expert.
           </p>
-          <a className="hero-action" href="#configurator">
-            Start Designing <span>→</span>
-          </a>
+          <div className="hero-actions">
+            <a className="hero-action" href="#configurator">
+              Start Designing <span>→</span>
+            </a>
+            <Link className="hero-secondary" href="/planner">
+              See it on your home
+            </Link>
+          </div>
           <div className="hero-proof">
             <span>Custom crafted</span>
             <span>Expert guidance</span>
