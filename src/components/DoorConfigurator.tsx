@@ -67,7 +67,7 @@ export function DoorConfigurator() {
     knownId(catalog.handles, params.get("handle")) ?? catalog.handles[0].id,
   );
   const [finishId, setFinishId] = useState(
-    knownId(catalog.finishes, params.get("finish")) ?? catalog.finishes[0].id,
+    resolveFinishId(params.get("finish")) ?? catalog.finishes[0].id,
   );
   const [lockId, setLockId] = useState(
     knownId(lockOptions, params.get("lock")) ?? lockOptions[0].id,
@@ -184,7 +184,8 @@ export function DoorConfigurator() {
     }
     if (design.glassId && knownId(catalog.glass, design.glassId)) setGlassId(design.glassId);
     if (design.handleId && knownId(catalog.handles, design.handleId)) setHandleId(design.handleId);
-    if (design.finishId && knownId(catalog.finishes, design.finishId)) setFinishId(design.finishId);
+    const restoredFinish = resolveFinishId(design.finishId);
+    if (restoredFinish) setFinishId(restoredFinish);
     if (design.lockId && knownId(lockOptions, design.lockId)) setLockId(design.lockId);
     if (design.screenId && knownId(screenOptions, design.screenId)) setScreenId(design.screenId);
     if (design.sidelightId && knownId(sidelightOptions, design.sidelightId)) {
@@ -836,6 +837,24 @@ function OptionThumb({ src }: { src?: string | null }) {
       <Image alt="" fill sizes="54px" src={src} unoptimized />
     </span>
   );
+}
+
+const finishIdAliases: Record<string, string> = {
+  bronze: "cs001",
+  grey: "cs003",
+  gray: "cs003",
+  brown: "cs004",
+  "golden-brown": "cs009",
+  gold: "cs010",
+  walnut: "cs011",
+  "night-brown": "cs012",
+  "espresso-brown": "cs013",
+};
+
+function resolveFinishId(id: string | null | undefined) {
+  if (!id) return undefined;
+  const next = finishIdAliases[id] ?? id;
+  return catalog.finishes.some((finish) => finish.id === next) ? next : undefined;
 }
 
 function knownId<T extends { id: string }>(options: readonly T[], id: string | null) {
