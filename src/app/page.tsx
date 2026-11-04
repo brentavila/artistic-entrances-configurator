@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FeaturedDoors } from "@/components/FeaturedDoors";
 import { GoogleReviews } from "@/components/GoogleReviews";
 import { LeadTimeNote } from "@/components/LeadTimeNote";
@@ -34,9 +35,14 @@ export default function HomePage() {
             who send their contact details can have a mockup prepared. The
             showroom confirms measurements and price before anything is built.
           </p>
-          <a className="hero-action" href="/design-your-door">
-            Design Your Door <span>→</span>
-          </a>
+          <div className="hero-actions">
+            <a className="hero-action" href="/design-your-door">
+              Design Your Door <span>→</span>
+            </a>
+            <Link className="hero-secondary" href="/planner">
+              See it on your home
+            </Link>
+          </div>
           <div className="hero-proof">
             <span>Hand-finished iron</span>
             <span>Glass and hardware choices</span>

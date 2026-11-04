@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { catalog, optionById } from "@/lib/catalog";
@@ -355,6 +356,12 @@ export function DoorConfigurator() {
             beside it. Hand-forged iron can vary slightly from the photo. A
             custom order follows the drawing you approve.
           </p>
+          <Link
+            className="preview-planner-link"
+            href={`/planner?door=${encodeURIComponent(door.id)}`}
+          >
+            Preview this door on your entry
+          </Link>
         </aside>
 
         <div className="options-panel">

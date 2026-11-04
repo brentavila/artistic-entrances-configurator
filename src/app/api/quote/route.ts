@@ -44,6 +44,13 @@ export async function POST(request: Request) {
     );
   }
 
+  for (const field of ["entryPhoto", "entryPhoto2", "entryPhoto3", "entryPhoto4"]) {
+    const photoError = photoMessage(form.get(field));
+    if (photoError) {
+      return NextResponse.json({ message: photoError }, { status: 400 });
+    }
+  }
+
   const email = asText(form.get("email"));
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ message: "Enter a valid email address." }, { status: 400 });
@@ -54,19 +61,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Enter a 5-digit ZIP code." }, { status: 400 });
   }
 
-  const photo = form.get("entryPhoto");
-  let entryPhotoName = "";
-  if (photo instanceof File && photo.size > 0) {
-    const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
-    if (!allowed.has(photo.type) || photo.size > 8 * 1024 * 1024) {
-      return NextResponse.json(
-        { message: "Photos must be JPG, PNG, or WebP and under 8 MB." },
-        { status: 400 },
-      );
-    }
-    entryPhotoName = photo.name;
-  }
-
+  const plannerLead = asText(form.get("leadSource")) === "entry-planner";
+  const extraPhotoNames = ["entryPhoto", "entryPhoto2", "entryPhoto3", "entryPhoto4"]
+    .map((field) => {
+      const value = form.get(field);
+      return value instanceof File && value.size > 0 ? value.name : "";
+    })
+    .filter(Boolean);
   const area = serviceAreaForZip(zip);
   const mockupEligible = leadType === "quote" && area.inArea;
   const partial = {
@@ -78,7 +79,9 @@ export async function POST(request: Request) {
     zip,
     customerType: asText(form.get("customerType")),
     timeline: asText(form.get("timeline")),
-    notes: asText(form.get("notes")),
+    notes: [asText(form.get("notes")), asText(form.get("plannerSummary"))]
+      .filter(Boolean)
+      .join("\n"),
     doorId: asText(form.get("doorId")),
     doorName: asText(form.get("doorName")),
     configuration: asText(form.get("configuration")),
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
     utmCampaign: asText(form.get("utm_campaign")),
     utmContent: asText(form.get("utm_content")),
     gclid: asText(form.get("gclid")),
-    entryPhotoName,
+    entryPhotoName: extraPhotoNames.join(", "),
     inArea: area.inArea,
     serviceArea: area.label,
     mockupEligible,
@@ -113,7 +116,7 @@ export async function POST(request: Request) {
   if (doorImage) partial.doorImageUrl = doorImage.url;
   const lead: LeadRecord = {
     ...partial,
-    tags: leadTags(partial),
+    tags: [...leadTags(partial), ...(plannerLead ? ["entry-planner"] : [])],
     summary: buildSummary(partial),
   };
 
@@ -145,7 +148,10 @@ export async function POST(request: Request) {
     form.set("tags", lead.tags.join(","));
     form.set("summary", lead.summary);
     form.set("consentTimestamp", lead.consentTimestamp);
-    form.set("leadSource", `website-${lead.leadType}`);
+    form.set(
+      "leadSource",
+      plannerLead ? "entry-planner" : `website-${lead.leadType}`,
+    );
     form.set("doorImageUrl", lead.doorImageUrl);
     if (doorImage) {
       form.set(
@@ -193,6 +199,15 @@ export async function POST(request: Request) {
 
 function asText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function photoMessage(value: FormDataEntryValue | null) {
+  if (!(value instanceof File) || value.size === 0) return null;
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(value.type) || value.size > 8 * 1024 * 1024) {
+    return "Photos must be JPG, PNG, or WebP and under 8 MB.";
+  }
+  return null;
 }
 
 async function readDoorImage(imagePath: string) {
