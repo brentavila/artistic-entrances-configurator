@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
 import { GoogleTagManager } from "@/components/GoogleTagManager";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
+import { business } from "@/lib/business";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Design Your Custom Iron Door | Artistic Entrances",
+  metadataBase: new URL(business.siteUrl),
+  title: {
+    default: "Custom Iron Entry Doors in Las Vegas | Artistic Entrances",
+    template: "%s | Artistic Entrances",
+  },
   description:
-    "Explore handcrafted iron door styles, choose your glass, hardware, and finish, and request a personalized quote from Artistic Entrances.",
+    "Artistic Entrances designs custom iron entry doors in Las Vegas. Choose glass, hardware, and finish, then request a quote from the local showroom.",
+  applicationName: "Artistic Entrances",
 };
 
 export default function RootLayout({
@@ -15,7 +23,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <GoogleTagManager />
+        <SiteHeader />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

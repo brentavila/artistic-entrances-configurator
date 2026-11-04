@@ -312,6 +312,7 @@ export function cameraBlocked(
 }
 
 export function doorTextureSrc(imageUrl: string) {
+  if (imageUrl.startsWith("/")) return imageUrl;
   return `/api/door-image?src=${encodeURIComponent(imageUrl)}`;
 }
 

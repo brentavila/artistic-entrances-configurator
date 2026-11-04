@@ -177,9 +177,11 @@ export function PlannerApp() {
     setMessage("");
 
     const form = new FormData(event.currentTarget);
+    form.set("leadType", "quote");
     form.set("doorId", door.id);
     form.set("doorName", door.name);
     form.set("configuration", door.configuration);
+    form.set("doorImagePath", door.imageUrl);
     form.set("glassId", glass.id);
     form.set("glassName", glass.name);
     form.set("handleId", handle.id);
