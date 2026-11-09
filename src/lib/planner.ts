@@ -316,32 +316,257 @@ export function doorTextureSrc(imageUrl: string) {
   return `/api/door-image?src=${encodeURIComponent(imageUrl)}`;
 }
 
-export function loadDownscaled(url: string, maxEdge: number) {
-  return new Promise<string>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      const context = canvas.getContext("2d");
-      if (!context) {
-        reject(new Error("Could not prepare the photo."));
-        return;
+export type PixelBox = { x: number; y: number; width: number; height: number };
+
+function backgroundPixel(data: Uint8ClampedArray | Uint8Array, index: number) {
+  const red = data[index];
+  const green = data[index + 1];
+  const blue = data[index + 2];
+  const alpha = data[index + 3];
+  if (alpha < 20) return true;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  // Product photos sit on white, with a faint watermark outside the door.
+  return max > 214 && max - min < 28;
+}
+
+export function doorContentBox(
+  data: Uint8ClampedArray | Uint8Array,
+  width: number,
+  height: number,
+): PixelBox | null {
+  const seen = new Uint8Array(width * height);
+  const stack: number[] = [];
+  const push = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const pixel = y * width + x;
+    if (seen[pixel] || !backgroundPixel(data, pixel * 4)) return;
+    seen[pixel] = 1;
+    stack.push(pixel);
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    push(x, 0);
+    push(x, height - 1);
+  }
+  for (let y = 0; y < height; y += 1) {
+    push(0, y);
+    push(width - 1, y);
+  }
+  while (stack.length > 0) {
+    const pixel = stack.pop() ?? 0;
+    const x = pixel % width;
+    const y = (pixel - x) / width;
+    push(x - 1, y);
+    push(x + 1, y);
+    push(x, y - 1);
+    push(x, y + 1);
+  }
+
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (seen[y * width + x]) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX < 0) return null;
+  const box = {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+  };
+  if (box.width < width * 0.2 || box.height < height * 0.35) return null;
+  return box;
+}
+
+export function fillEdgeBackground(
+  data: Uint8ClampedArray | Uint8Array,
+  width: number,
+  height: number,
+) {
+  const outside = new Uint8Array(width * height);
+  const stack: number[] = [];
+  const push = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const pixel = y * width + x;
+    if (outside[pixel] || !backgroundPixel(data, pixel * 4)) return;
+    outside[pixel] = 1;
+    stack.push(pixel);
+  };
+  for (let x = 0; x < width; x += 1) {
+    push(x, 0);
+    push(x, height - 1);
+  }
+  for (let y = 0; y < height; y += 1) {
+    push(0, y);
+    push(width - 1, y);
+  }
+  while (stack.length > 0) {
+    const pixel = stack.pop() ?? 0;
+    const x = pixel % width;
+    const y = (pixel - x) / width;
+    push(x - 1, y);
+    push(x + 1, y);
+    push(x, y - 1);
+    push(x, y + 1);
+  }
+
+  let remaining = outside.reduce((sum, value) => sum + value, 0);
+  let guard = 0;
+  while (remaining > 0 && guard < width + height) {
+    guard += 1;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const pixel = y * width + x;
+        if (!outside[pixel]) continue;
+        const neighbors = [
+          [x - 1, y],
+          [x + 1, y],
+          [x, y - 1],
+          [x, y + 1],
+        ];
+        for (const [nextX, nextY] of neighbors) {
+          if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) continue;
+          const next = nextY * width + nextX;
+          if (outside[next]) continue;
+          const target = pixel * 4;
+          const source = next * 4;
+          data[target] = data[source];
+          data[target + 1] = data[source + 1];
+          data[target + 2] = data[source + 2];
+          data[target + 3] = 255;
+          outside[pixel] = 0;
+          remaining -= 1;
+          break;
+        }
       }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.86));
-    };
-    image.onerror = () => reject(new Error("Could not read that photo."));
-    image.src = url;
-  });
+    }
+  }
 }
 
 export async function fileToPreviewUrl(file: File, maxEdge: number) {
-  const objectUrl = URL.createObjectURL(file);
+  const buffer = await file.arrayBuffer();
+  const orientation = jpegOrientation(buffer);
+  const bitmap = await createImageBitmap(new Blob([buffer], { type: file.type }), {
+    imageOrientation: "none",
+  });
   try {
-    return await loadDownscaled(objectUrl, maxEdge);
+    const turned = orientation > 4;
+    const orientedWidth = turned ? bitmap.height : bitmap.width;
+    const orientedHeight = turned ? bitmap.width : bitmap.height;
+    const scale = Math.min(1, maxEdge / Math.max(orientedWidth, orientedHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(orientedWidth * scale));
+    canvas.height = Math.max(1, Math.round(orientedHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not prepare the photo.");
+    context.scale(scale, scale);
+    orientContext(context, orientation, bitmap.width, bitmap.height);
+    context.drawImage(bitmap, 0, 0);
+    return canvas.toDataURL("image/jpeg", 0.86);
   } finally {
-    URL.revokeObjectURL(objectUrl);
+    bitmap.close();
   }
+}
+
+function jpegOrientation(buffer: ArrayBuffer) {
+  const view = new DataView(buffer);
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return 1;
+  let offset = 2;
+  while (offset + 4 < view.byteLength) {
+    const marker = view.getUint16(offset);
+    const size = view.getUint16(offset + 2);
+    if (marker === 0xffe1 && size > 8 && view.getUint32(offset + 4) === 0x45786966) {
+      const tiff = offset + 10;
+      const little = view.getUint16(tiff) === 0x4949;
+      const read16 = (position: number) => view.getUint16(position, little);
+      const read32 = (position: number) => view.getUint32(position, little);
+      if (read16(tiff + 2) !== 0x002a) return 1;
+      const ifd = tiff + read32(tiff + 4);
+      const count = read16(ifd);
+      for (let index = 0; index < count; index += 1) {
+        const entry = ifd + 2 + index * 12;
+        if (entry + 10 > view.byteLength) break;
+        if (read16(entry) === 0x0112) return read16(entry + 8);
+      }
+      return 1;
+    }
+    if (marker === 0xffda || size < 2) break;
+    offset += 2 + size;
+  }
+  return 1;
+}
+
+function orientContext(
+  context: CanvasRenderingContext2D,
+  orientation: number,
+  width: number,
+  height: number,
+) {
+  switch (orientation) {
+    case 2:
+      context.transform(-1, 0, 0, 1, width, 0);
+      break;
+    case 3:
+      context.transform(-1, 0, 0, -1, width, height);
+      break;
+    case 4:
+      context.transform(1, 0, 0, -1, 0, height);
+      break;
+    case 5:
+      context.transform(0, 1, 1, 0, 0, 0);
+      break;
+    case 6:
+      context.transform(0, 1, -1, 0, height, 0);
+      break;
+    case 7:
+      context.transform(0, -1, -1, 0, height, width);
+      break;
+    case 8:
+      context.transform(0, -1, 1, 0, 0, width);
+      break;
+    default:
+      break;
+  }
+}
+
+export async function doorTextureUrl(url: string, maxEdge: number) {
+  const image = await loadImage(url);
+  const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Could not prepare the door.");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+  const box = doorContentBox(frame.data, canvas.width, canvas.height);
+  if (!box) return canvas.toDataURL("image/png");
+
+  const cropped = context.getImageData(box.x, box.y, box.width, box.height);
+  fillEdgeBackground(cropped.data, box.width, box.height);
+  const output = document.createElement("canvas");
+  output.width = box.width;
+  output.height = box.height;
+  const outputContext = output.getContext("2d");
+  if (!outputContext) return canvas.toDataURL("image/png");
+  outputContext.putImageData(cropped, 0, 0);
+  return output.toDataURL("image/png");
+}
+
+function loadImage(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not read the door image."));
+    image.src = url;
+  });
 }

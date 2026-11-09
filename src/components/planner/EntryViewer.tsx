@@ -15,11 +15,11 @@ import {
   cameraPose,
   doorLeaf,
   doorTextureSrc,
+  doorTextureUrl,
   entryRoom,
   facadeFromMark,
   facadeRects,
   hingeX,
-  loadDownscaled,
   swingRadians,
   walkBounds,
 } from "@/lib/planner";
@@ -43,8 +43,8 @@ export function EntryViewer({
   viewName: PlannerView;
   viewNonce: number;
 }) {
-  const photo = usePreviewTexture(photoUrl, null);
-  const door = usePreviewTexture(doorTextureSrc(doorImageUrl), 1024);
+  const photo = usePreviewTexture(photoUrl);
+  const door = usePreviewTexture(doorTextureSrc(doorImageUrl), true);
 
   return (
     <div className="planner-canvas">
@@ -411,8 +411,9 @@ function photoGeometry(rect: WallRect, facade: ReturnType<typeof facadeFromMark>
       3,
     ),
   );
-  const u0 = (rect.x0 - facade.left) / facade.width;
-  const u1 = (rect.x1 - facade.left) / facade.width;
+  // The exterior camera shows this plane mirrored, so U runs right to left.
+  const u0 = 1 - (rect.x0 - facade.left) / facade.width;
+  const u1 = 1 - (rect.x1 - facade.left) / facade.width;
   const v0 = (rect.y0 - facade.bottom) / facade.height;
   const v1 = (rect.y1 - facade.bottom) / facade.height;
   geometry.setAttribute(
@@ -424,7 +425,7 @@ function photoGeometry(rect: WallRect, facade: ReturnType<typeof facadeFromMark>
   return geometry;
 }
 
-function usePreviewTexture(url: string, maxEdge: number | null) {
+function usePreviewTexture(url: string, cropDoor = false) {
   const [state, setState] = useState<{ texture: THREE.Texture | null; failed: boolean }>({
     texture: null,
     failed: false,
@@ -442,6 +443,7 @@ function usePreviewTexture(url: string, maxEdge: number | null) {
       }
       next.colorSpace = THREE.SRGBColorSpace;
       next.anisotropy = 8;
+      next.flipY = true;
       texture = next;
       setState({ texture: next, failed: false });
     };
@@ -450,14 +452,14 @@ function usePreviewTexture(url: string, maxEdge: number | null) {
     };
     const load = (source: string) => loader.load(source, apply, undefined, fail);
 
-    if (maxEdge) loadDownscaled(url, maxEdge).then(load).catch(fail);
-    else load(url);
+    const prepare = cropDoor ? doorTextureUrl(url, 1024).catch(() => url) : Promise.resolve(url);
+    prepare.then(load).catch(fail);
 
     return () => {
       alive = false;
       texture?.dispose();
     };
-  }, [maxEdge, url]);
+  }, [cropDoor, url]);
 
   return state;
 }
