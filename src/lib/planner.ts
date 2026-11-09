@@ -455,26 +455,58 @@ export function fillEdgeBackground(
 export async function fileToPreviewUrl(file: File, maxEdge: number) {
   const buffer = await file.arrayBuffer();
   const orientation = jpegOrientation(buffer);
-  const bitmap = await createImageBitmap(new Blob([buffer], { type: file.type }), {
-    imageOrientation: "none",
-  });
+  const stored = jpegSize(buffer);
+  const bitmap = await createImageBitmap(new Blob([buffer], { type: file.type || "image/jpeg" }));
   try {
-    const turned = orientation > 4;
-    const orientedWidth = turned ? bitmap.height : bitmap.width;
-    const orientedHeight = turned ? bitmap.width : bitmap.height;
+    // Phone photos are stored sideways with a rotation tag. Current browsers
+    // already apply that tag, so turning the pixels again lays the door on
+    // its side. A browser that ignores the tag keeps the stored dimensions.
+    const turns = orientation >= 5 && orientation <= 8;
+    const browserTurned =
+      !turns ||
+      !stored ||
+      (bitmap.width === stored.height && bitmap.height === stored.width);
+    const orientedWidth = browserTurned ? bitmap.width : bitmap.height;
+    const orientedHeight = browserTurned ? bitmap.height : bitmap.width;
     const scale = Math.min(1, maxEdge / Math.max(orientedWidth, orientedHeight));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(orientedWidth * scale));
     canvas.height = Math.max(1, Math.round(orientedHeight * scale));
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Could not prepare the photo.");
-    context.scale(scale, scale);
-    orientContext(context, orientation, bitmap.width, bitmap.height);
-    context.drawImage(bitmap, 0, 0);
+    if (browserTurned) {
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    } else {
+      context.scale(scale, scale);
+      orientContext(context, orientation, bitmap.width, bitmap.height);
+      context.drawImage(bitmap, 0, 0);
+    }
     return canvas.toDataURL("image/jpeg", 0.86);
   } finally {
     bitmap.close();
   }
+}
+
+function jpegSize(buffer: ArrayBuffer) {
+  const view = new DataView(buffer);
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+  let offset = 2;
+  while (offset + 9 < view.byteLength) {
+    const marker = view.getUint16(offset);
+    if (
+      (marker >= 0xffc0 && marker <= 0xffc3) ||
+      (marker >= 0xffc5 && marker <= 0xffc7) ||
+      (marker >= 0xffc9 && marker <= 0xffcb) ||
+      (marker >= 0xffcd && marker <= 0xffcf)
+    ) {
+      return { width: view.getUint16(offset + 7), height: view.getUint16(offset + 5) };
+    }
+    if (marker === 0xffda || marker === 0xffd9) break;
+    const size = view.getUint16(offset + 2);
+    if (size < 2) break;
+    offset += 2 + size;
+  }
+  return null;
 }
 
 function jpegOrientation(buffer: ArrayBuffer) {
@@ -485,24 +517,40 @@ function jpegOrientation(buffer: ArrayBuffer) {
     const marker = view.getUint16(offset);
     const size = view.getUint16(offset + 2);
     if (marker === 0xffe1 && size > 8 && view.getUint32(offset + 4) === 0x45786966) {
-      const tiff = offset + 10;
-      const little = view.getUint16(tiff) === 0x4949;
-      const read16 = (position: number) => view.getUint16(position, little);
-      const read32 = (position: number) => view.getUint32(position, little);
-      if (read16(tiff + 2) !== 0x002a) return 1;
-      const ifd = tiff + read32(tiff + 4);
-      const count = read16(ifd);
-      for (let index = 0; index < count; index += 1) {
-        const entry = ifd + 2 + index * 12;
-        if (entry + 10 > view.byteLength) break;
-        if (read16(entry) === 0x0112) return read16(entry + 8);
-      }
-      return 1;
+      const found = orientationInExif(view, offset + 10);
+      if (found) return found;
     }
     if (marker === 0xffda || size < 2) break;
     offset += 2 + size;
   }
   return 1;
+}
+
+function orientationInExif(view: DataView, tiff: number) {
+  if (tiff + 8 > view.byteLength) return 0;
+  const little = view.getUint16(tiff) === 0x4949;
+  const read16 = (position: number) => view.getUint16(position, little);
+  const read32 = (position: number) => view.getUint32(position, little);
+  if (read16(tiff + 2) !== 0x002a) return 0;
+  let ifd = tiff + read32(tiff + 4);
+  for (let depth = 0; depth < 4 && ifd + 2 < view.byteLength; depth += 1) {
+    const count = read16(ifd);
+    for (let index = 0; index < count; index += 1) {
+      const entry = ifd + 2 + index * 12;
+      if (entry + 12 > view.byteLength) return 0;
+      if (read16(entry) === 0x0112) {
+        const type = read16(entry + 2);
+        const values = read32(entry + 4);
+        if (values !== 1) continue;
+        if (type === 3) return read16(entry + 8);
+        if (type === 4) return read32(entry + 8);
+      }
+    }
+    const next = read32(ifd + 2 + count * 12);
+    if (!next) break;
+    ifd = tiff + next;
+  }
+  return 0;
 }
 
 function orientContext(
