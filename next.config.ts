@@ -5,6 +5,9 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined;
 
 const nextConfig: NextConfig = {
+  // Cursor's local preview uses 127.0.0.1 and a forwarded *.agent.cvm.dev host.
+  // Next.js blocks those in development, which leaves the planner as static HTML.
+  allowedDevOrigins: ["127.0.0.1", "*.agent.cvm.dev", "*.trycloudflare.com"],
   images: {
     remotePatterns: [
       {
