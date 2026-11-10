@@ -272,10 +272,10 @@ function OpeningTrim({ opening }: { opening: Opening }) {
         <meshStandardMaterial color="#6d6256" metalness={0.08} roughness={0.72} />
       </mesh>
       {/* What shows through an open door. The photos cannot show the other
-          side, so it is plain shade looking in and plain daylight looking out. */}
+          side, so it is a soft, warm interior light looking in and plain daylight looking out. */}
       <mesh position={[0, opening.height / 2, opening.jambDepth + 0.3]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[opening.width, opening.height]} />
-        <meshBasicMaterial color="#1b1916" toneMapped={false} />
+        <meshBasicMaterial color="#d9cfc0" toneMapped={false} />
       </mesh>
       <mesh position={[0, opening.height / 2, -0.7]}>
         <planeGeometry args={[opening.width, opening.height]} />
