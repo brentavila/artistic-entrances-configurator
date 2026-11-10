@@ -54,11 +54,6 @@ export type WallRect = {
   y1: number;
 };
 
-export type CameraPose = {
-  position: [number, number, number];
-  target: [number, number, number];
-};
-
 export const defaultOpeningDraft: OpeningDraft = {
   width: "38",
   height: "82.5",
@@ -162,13 +157,15 @@ export function doorLeaf(opening: Opening) {
   };
 }
 
+// Hinge side is named standing outside, facing the door. World +X is on that
+// person's left (see facadeFromMark), so a left hinge sits at +X.
 export function hingeX(opening: Opening) {
   return opening.hingeSide === "left"
-    ? -opening.width / 2 + FRAME.side
-    : opening.width / 2 - FRAME.side;
+    ? opening.width / 2 - FRAME.side
+    : -opening.width / 2 + FRAME.side;
 }
 
-// Negative Y rotation swings a left-hinged door into the house.
+// Positive Y rotation swings a left-hinged door (hinge at +X) into the house.
 // The sign flips for a right hinge, and again for an outswing.
 export function swingRadians(
   opening: Pick<Opening, "hingeSide" | "swing">,
@@ -177,7 +174,7 @@ export function swingRadians(
   const angle = (Math.PI / 2) * clamp(openAmount, 0, 1);
   const intoHome = opening.swing === "in";
   const left = opening.hingeSide === "left";
-  const sign = left === intoHome ? -1 : 1;
+  const sign = left === intoHome ? 1 : -1;
   return sign * angle;
 }
 
@@ -236,110 +233,6 @@ export function facadeRects(facade: Facade, opening: Opening): WallRect[] {
   return candidates.filter(
     (rect) => rect.x1 - rect.x0 > 0.5 && rect.y1 - rect.y0 > 0.5,
   );
-}
-
-/** The parts of a wall of the given size that surround the opening. */
-export function wallRects(
-  bounds: { left: number; right: number; bottom: number; top: number },
-  opening: Opening,
-  clip?: { left: number; right: number; bottom: number; top: number },
-): WallRect[] {
-  const ox0 = -opening.width / 2;
-  const ox1 = opening.width / 2;
-  const left = Math.max(bounds.left, clip?.left ?? -Infinity);
-  const right = Math.min(bounds.right, clip?.right ?? Infinity);
-  const bottom = Math.max(bounds.bottom, clip?.bottom ?? -Infinity);
-  const top = Math.min(bounds.top, clip?.top ?? Infinity);
-  const candidates: WallRect[] = [
-    { id: "left", x0: left, x1: Math.min(ox0, right), y0: bottom, y1: top },
-    { id: "right", x0: Math.max(ox1, left), x1: right, y0: bottom, y1: top },
-    { id: "head", x0: ox0, x1: ox1, y0: Math.max(opening.height, bottom), y1: top },
-    { id: "sill", x0: ox0, x1: ox1, y0: bottom, y1: Math.min(0, top) },
-  ];
-  return candidates.filter(
-    (rect) => rect.x1 - rect.x0 > 0.5 && rect.y1 - rect.y0 > 0.5,
-  );
-}
-
-export function entryRoom(opening: Opening) {
-  return {
-    width: Math.max(opening.width + 64, 96),
-    depth: 132,
-    ceiling: Math.max(opening.height + 16, 96),
-    eye: Math.min(64, opening.height - 8),
-  };
-}
-
-export function cameraPose(
-  name: PlannerView,
-  opening: Opening,
-  facade: Facade,
-): CameraPose {
-  const room = entryRoom(opening);
-  if (name === "threshold") {
-    return {
-      position: [0, room.eye, -36],
-      target: [0, opening.height * 0.42, opening.jambDepth],
-    };
-  }
-  if (name === "inside") {
-    return {
-      position: [0, room.eye, opening.jambDepth + 72],
-      target: [0, opening.height * 0.46, 0],
-    };
-  }
-
-  const span = Math.max(facade.height, facade.width * 0.65, opening.height);
-  const y = clamp(
-    (Math.max(facade.bottom, -12) + facade.top) / 2,
-    opening.height * 0.35,
-    Math.max(opening.height, facade.top),
-  );
-  return {
-    position: [0, y, -Math.max(span * 0.95, 90)],
-    target: [0, opening.height * 0.45, 0],
-  };
-}
-
-export function walkBounds(opening: Opening, facade: Facade) {
-  const room = entryRoom(opening);
-  const exteriorDistance = Math.abs(
-    cameraPose("exterior", opening, facade).position[2],
-  );
-  return {
-    minX: -room.width / 2 + 10,
-    maxX: room.width / 2 - 10,
-    minZ: -(exteriorDistance + 24),
-    maxZ: opening.jambDepth + room.depth - 14,
-    eye: room.eye,
-  };
-}
-
-export function cameraBlocked(
-  x: number,
-  z: number,
-  opening: Opening,
-  doorOpen: number,
-) {
-  const inJamb = z > -0.5 && z < opening.jambDepth + 0.5;
-  const inHole = Math.abs(x) < opening.width / 2 - 4;
-  if (inJamb && !inHole) return true;
-  if (doorOpen < 0.72 && inHole && z > -0.5 && z < opening.jambDepth + 2) {
-    return true;
-  }
-
-  if (doorOpen >= 0.72) {
-    const leaf = doorLeaf(opening);
-    const hinge = hingeX(opening);
-    const inward = opening.swing === "in" ? 1 : -1;
-    const start = 0.75;
-    const end = start + inward * leaf.width;
-    if (z >= Math.min(start, end) && z <= Math.max(start, end) && Math.abs(x - hinge) < 7) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 export function doorTextureSrc(imageUrl: string) {

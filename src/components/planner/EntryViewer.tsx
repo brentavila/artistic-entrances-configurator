@@ -1,29 +1,25 @@
 "use client";
 
-import { OrbitControls, PointerLockControls } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RefObject, useEffect, useMemo, useRef, useState } from "react";
-import { OrbitControls as OrbitControlsImpl, PointerLockControls as PointerLockControlsImpl } from "three-stdlib";
+import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import {
   DoorMark,
   FRAME,
+  Facade,
   Opening,
   PlannerView,
   WallRect,
-  cameraBlocked,
-  cameraPose,
   doorLayers,
   doorLeaf,
   doorTextureSrc,
-  entryRoom,
   facadeFromMark,
   facadeRects,
   hingeX,
   swingRadians,
-  walkBounds,
-  wallRects,
 } from "@/lib/planner";
 
 const PHOTO_Z = -0.2;
@@ -96,7 +92,6 @@ export function EntryViewer({
           camera={{ fov: 42, near: 0.1, far: 8000, position: [0, 48, -120] }}
           dpr={[1, 1.75]}
           gl={{ antialias: true }}
-          shadows
         >
           <color args={["#d5cec1"]} attach="background" />
           <EntryScene
@@ -168,51 +163,33 @@ function EntryScene({
     () => rects.map((rect) => photoGeometry(rect, facade)),
     [rects, facade],
   );
-  const room = entryRoom(opening);
-  const roomWall = useMemo(
-    () => ({ left: -room.width / 2, right: room.width / 2, bottom: 0, top: room.ceiling }),
-    [room.width, room.ceiling],
+  // The interior photo, when there is one, is laid around the opening on the
+  // inside face of the wall. Nothing else is added to either side.
+  const insideFacade = useMemo(
+    () => (interiorTexture && interiorMark ? facadeFromMark(opening, interiorMark, "interior") : null),
+    [interiorMark, interiorTexture, opening],
   );
-  const innerRects = useMemo(() => wallRects(roomWall, opening), [roomWall, opening]);
   const insidePhoto = useMemo(() => {
-    if (!interiorTexture || !interiorMark) return [];
-    const inside = facadeFromMark(opening, interiorMark, "interior");
-    return wallRects(inside, opening, roomWall).map((rect) => ({
+    if (!insideFacade) return [];
+    return facadeRects(insideFacade, opening).map((rect) => ({
       id: rect.id,
-      geometry: photoGeometry(rect, inside, opening.jambDepth + 0.12, true),
+      geometry: photoGeometry(rect, insideFacade, opening.jambDepth + 0.2, true),
     }));
-  }, [interiorMark, interiorTexture, opening, roomWall]);
+  }, [insideFacade, opening]);
 
   useEffect(() => () => geometries.forEach((geometry) => geometry.dispose()), [geometries]);
   useEffect(() => () => insidePhoto.forEach((item) => item.geometry.dispose()), [insidePhoto]);
 
   return (
     <>
+      {/* Lights shade the new door and frame only. The photos are shown exactly as taken. */}
       <StudioEnvironment />
       <hemisphereLight args={["#fff6ea", "#b5aa98", 0.7]} />
       <ambientLight intensity={0.15} />
-      {/* The sun stands in front of the house, so the ironwork throws its pattern onto the foyer floor. */}
-      <directionalLight
-        castShadow
-        color="#fff3e0"
-        intensity={3}
-        position={[-28, 150, -80]}
-        shadow-bias={-0.0004}
-        shadow-mapSize={[2048, 2048]}
-        shadow-normalBias={0.4}
-      >
-        <orthographicCamera args={[-110, 110, 130, -40, 1, 420]} attach="shadow-camera" />
-      </directionalLight>
-      <pointLight
-        color="#fff4e5"
-        distance={room.depth + opening.jambDepth + 40}
-        intensity={18}
-        position={[0, room.ceiling - 12, opening.jambDepth + 48]}
-      />
+      <directionalLight color="#fff3e0" intensity={3} position={[-28, 150, -80]} />
 
       {geometries.map((geometry, index) => (
         <mesh geometry={geometry} key={rects[index].id}>
-          {/* The customer's photo is shown exactly as taken, not relit. */}
           {/* Once the old door has been painted out, the wall uses that version. */}
           <meshBasicMaterial map={plateTexture ?? photoTexture} toneMapped={false} />
         </mesh>
@@ -221,38 +198,6 @@ function EntryScene({
       {insidePhoto.map((item) => (
         <mesh geometry={item.geometry} key={`${item.id}-inside-photo`}>
           <meshBasicMaterial map={interiorTexture} toneMapped={false} />
-        </mesh>
-      ))}
-
-      {/* The full front wall of the foyer, so the room is closed even where the photo ends. */}
-      {innerRects.map((rect) => (
-        <mesh
-          castShadow
-          key={`${rect.id}-inner-wall`}
-          position={[
-            (rect.x0 + rect.x1) / 2,
-            (rect.y0 + rect.y1) / 2,
-            (opening.jambDepth + 0.3) / 2,
-          ]}
-          receiveShadow
-        >
-          <boxGeometry args={[rect.x1 - rect.x0, rect.y1 - rect.y0, opening.jambDepth - 0.3]} />
-          <meshStandardMaterial color="#efe8dc" roughness={0.94} />
-        </mesh>
-      ))}
-
-      {rects.map((rect) => (
-        <mesh
-          castShadow
-          key={`${rect.id}-wall`}
-          position={[
-            (rect.x0 + rect.x1) / 2,
-            (rect.y0 + rect.y1) / 2,
-            opening.jambDepth / 2,
-          ]}
-        >
-          <boxGeometry args={[rect.x1 - rect.x0, rect.y1 - rect.y0, opening.jambDepth]} />
-          <meshStandardMaterial color="#e6dfd2" roughness={0.94} />
         </mesh>
       ))}
 
@@ -274,20 +219,17 @@ function EntryScene({
       />
       <LightSweep opening={opening} stage={stage} />
       <RevealDirector
-        facade={facade}
         onEnd={onRevealEnd}
         onPlaying={setPlaying}
-        opening={opening}
         revealNonce={revealNonce}
         stage={stage}
         viewNonce={viewNonce}
       />
-      <Room hasPhoto={insidePhoto.length > 0} opening={opening} />
       <ViewerControls
-        paused={playing}
-        doorOpen={doorOpen}
-        mark={mark}
+        facade={facade}
+        insideFacade={insideFacade}
         opening={opening}
+        paused={playing}
         viewName={viewName}
         viewNonce={viewNonce}
       />
@@ -295,8 +237,11 @@ function EntryScene({
   );
 }
 
+/** The new door frame: casing on the face, jambs lining the opening, and the sill. */
 function OpeningTrim({ opening }: { opening: Opening }) {
   const casing = "#3c342c";
+  const depth = opening.jambDepth + 0.4;
+  const midZ = (opening.jambDepth - 0.4) / 2;
   return (
     <group>
       <mesh position={[-opening.width / 2 + 0.7, opening.height / 2, -0.45]}>
@@ -311,9 +256,30 @@ function OpeningTrim({ opening }: { opening: Opening }) {
         <boxGeometry args={[opening.width, 1.4, 1.1]} />
         <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
       </mesh>
+      {/* Jambs through the wall thickness, so an open door shows a frame, not a gap. */}
+      {[-1, 1].map((sign) => (
+        <mesh key={`jamb-${sign}`} position={[sign * (opening.width / 2 - 0.25), opening.height / 2, midZ]}>
+          <boxGeometry args={[0.5, opening.height, depth]} />
+          <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
+        </mesh>
+      ))}
+      <mesh position={[0, opening.height - 0.25, midZ]}>
+        <boxGeometry args={[opening.width, 0.5, depth]} />
+        <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
+      </mesh>
       <mesh position={[0, 0.45, opening.jambDepth / 2]}>
         <boxGeometry args={[opening.width - 1.5, 0.9, opening.jambDepth]} />
         <meshStandardMaterial color="#6d6256" metalness={0.08} roughness={0.72} />
+      </mesh>
+      {/* What shows through an open door. The photos cannot show the other
+          side, so it is plain shade looking in and plain daylight looking out. */}
+      <mesh position={[0, opening.height / 2, opening.jambDepth + 0.3]} rotation={[0, Math.PI, 0]}>
+        <planeGeometry args={[opening.width, opening.height]} />
+        <meshBasicMaterial color="#1b1916" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, opening.height / 2, -0.7]}>
+        <planeGeometry args={[opening.width, opening.height]} />
+        <meshBasicMaterial color="#ece7de" toneMapped={false} />
       </mesh>
     </group>
   );
@@ -337,7 +303,8 @@ function HingedDoor({
   const open = useRef(0);
   const reduceMotion = useRef(false);
   const leaf = doorLeaf(opening);
-  const towardLock = opening.hingeSide === "left" ? 1 : -1;
+  // The leaf runs from the hinge toward the latch, across the opening.
+  const towardLock = hingeX(opening) < 0 ? 1 : -1;
   const face = texture ? "#ffffff" : "#2b2926";
 
   useEffect(() => {
@@ -635,32 +602,6 @@ function LightSweep({ opening, stage }: { opening: Opening; stage: RefObject<Rev
   );
 }
 
-/** How far back the camera must stand for `width` inches to fit across the screen. */
-function fitDistance(camera: THREE.Camera, width: number) {
-  if (!(camera instanceof THREE.PerspectiveCamera)) return 0;
-  const half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
-  return width / 2 / half;
-}
-
-function exteriorZ(
-  camera: THREE.Camera,
-  opening: Opening,
-  facade: ReturnType<typeof facadeFromMark>,
-) {
-  const pose = cameraPose("exterior", opening, facade);
-  return -Math.max(-pose.position[2], fitDistance(camera, opening.width * 1.7));
-}
-
-/** Inside, step back far enough to see the whole door, without leaving the foyer. */
-function insideZ(camera: THREE.Camera, opening: Opening) {
-  const reach = clampNumber(
-    fitDistance(camera, opening.width * 1.5),
-    72,
-    entryRoom(opening).depth - 16,
-  );
-  return opening.jambDepth + reach;
-}
-
 function span(time: number, start: number, end: number) {
   return clampNumber((time - start) / (end - start), 0, 1);
 }
@@ -675,26 +616,21 @@ function easeOut(value: number) {
 
 /**
  * Plays the reveal: the old door dissolves, the opening stands empty for a
- * beat, the new door is seated, light crosses it, and the camera eases in.
+ * beat, the new door is seated, and light crosses it. The camera holds still.
  */
 function RevealDirector({
-  opening,
-  facade,
   stage,
   revealNonce,
   viewNonce,
   onPlaying,
   onEnd,
 }: {
-  opening: Opening;
-  facade: ReturnType<typeof facadeFromMark>;
   stage: RefObject<RevealStage>;
   revealNonce: number;
   viewNonce: number;
   onPlaying: (playing: boolean) => void;
   onEnd: () => void;
 }) {
-  const { camera } = useThree();
   const clock = useRef(-1);
   const lastReveal = useRef(0);
   const callbacks = useRef({ onPlaying, onEnd });
@@ -727,6 +663,7 @@ function RevealDirector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealNonce, viewNonce]);
 
+  // The reveal advances shared animation values every frame, outside React.
   /* eslint-disable react-hooks/immutability */
   useFrame((_, delta) => {
     if (clock.current < 0) return;
@@ -736,18 +673,6 @@ function RevealDirector({
     reveal.dissolve = easeInOut(span(time, 0.7, 2.1));
     reveal.settle = easeOut(span(time, 2.6, 3.7));
     reveal.sweep = span(time, 3.7, 4.8);
-
-    const pose = cameraPose("exterior", opening, facade);
-    const closer = easeInOut(span(time, 0.4, 4.8));
-    const start = exteriorZ(camera, opening, facade);
-    // Ease in, but never so close that the door is cut off on a narrow screen.
-    const end = -Math.max(-start * 0.74, fitDistance(camera, opening.width * 1.3));
-    camera.position.set(
-      pose.position[0],
-      THREE.MathUtils.lerp(pose.position[1], opening.height * 0.5, closer * 0.5),
-      THREE.MathUtils.lerp(start, end, closer),
-    );
-    camera.lookAt(...pose.target);
     if (time >= REVEAL_SECONDS) finish();
   });
   /* eslint-enable react-hooks/immutability */
@@ -755,272 +680,156 @@ function RevealDirector({
   return null;
 }
 
-function woodTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const context = canvas.getContext("2d");
-  if (context) {
-    // Eight planks side by side, each with its own tone, grain, and end joints.
-    let seed = 7;
-    const random = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
+type Framing = {
+  facade: Facade;
+  /** Depth of the photo plane the camera looks at. */
+  planeZ: number;
+  /** -1 stands outside the house, +1 inside. */
+  side: -1 | 1;
+  target: THREE.Vector3;
+  /** How far back the view starts, before it is pulled in to fit the photo. */
+  distance: number;
+};
+
+function framing(
+  view: PlannerView,
+  opening: Opening,
+  facade: Facade,
+  insideFacade: Facade | null,
+): Framing {
+  if (view === "inside" && insideFacade) {
+    return {
+      facade: insideFacade,
+      planeZ: opening.jambDepth + 0.2,
+      side: 1,
+      target: new THREE.Vector3(
+        (insideFacade.left + insideFacade.right) / 2,
+        (insideFacade.bottom + insideFacade.top) / 2,
+        opening.jambDepth,
+      ),
+      distance: 1e4,
     };
-    for (let plank = 0; plank < 8; plank += 1) {
-      const x = plank * 64;
-      let y = -random() * 300;
-      while (y < 512) {
-        const length = 220 + random() * 200;
-        const light = 36 + random() * 4;
-        context.fillStyle = `hsl(${27 + random() * 3}, ${28 + random() * 5}%, ${light}%)`;
-        context.fillRect(x, y, 64, length);
-        for (let line = 0; line < 9; line += 1) {
-          context.fillStyle = `rgba(40, 24, 12, ${0.04 + random() * 0.07})`;
-          context.fillRect(x + random() * 62, y, 1 + random(), length);
-        }
-        context.fillStyle = "rgba(30, 18, 10, 0.55)";
-        context.fillRect(x, y + length - 1, 64, 1.5);
-        y += length;
-      }
-      context.fillStyle = "rgba(30, 18, 10, 0.6)";
-      context.fillRect(x, 0, 1.2, 512);
-    }
   }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.anisotropy = 8;
-  return texture;
+  if (view === "threshold") {
+    return {
+      facade,
+      planeZ: PHOTO_Z,
+      side: -1,
+      target: new THREE.Vector3(0, opening.height * 0.5, 0),
+      distance: opening.height * 1.3,
+    };
+  }
+  return {
+    facade,
+    planeZ: PHOTO_Z,
+    side: -1,
+    target: new THREE.Vector3((facade.left + facade.right) / 2, (facade.bottom + facade.top) / 2, 0),
+    distance: 1e4,
+  };
 }
 
-function Room({ opening, hasPhoto }: { opening: Opening; hasPhoto: boolean }) {
-  const room = entryRoom(opening);
-  const wall = "#efe8dc";
-  const trim = "#f7f4ee";
-  const centerZ = opening.jambDepth + room.depth / 2;
-  const frontZ = opening.jambDepth;
-  const sideBase = (room.width - opening.width) / 2;
-  const wood = useMemo(() => {
-    const texture = woodTexture();
-    // One tile is 48 inches of floor: eight 6 inch planks running toward the door.
-    texture.repeat.set(room.width / 48, room.depth / 48);
-    return texture;
-  }, [room.width, room.depth]);
+const CORNERS = [
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+] as const;
 
-  useEffect(() => () => wood.dispose(), [wood]);
+/** True when every corner of the screen lands on the photo. */
+function seesOnlyPhoto(camera: THREE.Camera, fit: Framing) {
+  camera.updateMatrixWorld();
+  const point = new THREE.Vector3();
+  for (const [x, y] of CORNERS) {
+    point.set(x, y, 0.5).unproject(camera).sub(camera.position).normalize();
+    if (Math.abs(point.z) < 1e-6) return false;
+    const reach = (fit.planeZ - camera.position.z) / point.z;
+    if (reach <= 0) return false;
+    const hitX = camera.position.x + point.x * reach;
+    const hitY = camera.position.y + point.y * reach;
+    if (
+      hitX < fit.facade.left ||
+      hitX > fit.facade.right ||
+      hitY < fit.facade.bottom ||
+      hitY > fit.facade.top
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
 
-  return (
-    <group>
-      <mesh position={[0, -0.04, -70]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[room.width + 80, 140]} />
-        <meshStandardMaterial color="#cfc6b6" roughness={1} />
-      </mesh>
-      <mesh position={[0, 0.02, centerZ]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[room.width, room.depth]} />
-        <meshStandardMaterial envMapIntensity={0.6} map={wood} roughness={0.5} />
-      </mesh>
-      <mesh castShadow position={[0, room.ceiling + 0.75, centerZ]}>
-        <boxGeometry args={[room.width + 3, 1.5, room.depth + 3]} />
-        <meshStandardMaterial color="#f6f2ea" roughness={0.95} />
-      </mesh>
-      <mesh castShadow position={[-room.width / 2, room.ceiling / 2, centerZ]} receiveShadow>
-        <boxGeometry args={[1.5, room.ceiling, room.depth]} />
-        <meshStandardMaterial color={wall} roughness={0.95} />
-      </mesh>
-      <mesh castShadow position={[room.width / 2, room.ceiling / 2, centerZ]} receiveShadow>
-        <boxGeometry args={[1.5, room.ceiling, room.depth]} />
-        <meshStandardMaterial color={wall} roughness={0.95} />
-      </mesh>
-      <mesh position={[0, room.ceiling / 2, opening.jambDepth + room.depth]} receiveShadow>
-        <boxGeometry args={[room.width, room.ceiling, 1.5]} />
-        <meshStandardMaterial color="#e7e0d2" roughness={0.95} />
-      </mesh>
+const MIN_DISTANCE = 18;
 
-      {/* Baseboards on the side and back walls. */}
-      {[-1, 1].map((sign) => (
-        <mesh key={`base-${sign}`} position={[sign * (room.width / 2 - 1.1), 2.75, centerZ]}>
-          <boxGeometry args={[0.7, 5.5, room.depth]} />
-          <meshStandardMaterial color={trim} roughness={0.6} />
-        </mesh>
-      ))}
-      <mesh position={[0, 2.75, opening.jambDepth + room.depth - 1.1]}>
-        <boxGeometry args={[room.width, 5.5, 0.7]} />
-        <meshStandardMaterial color={trim} roughness={0.6} />
-      </mesh>
-
-      {/* With no interior photo, the door gets painted casing and baseboards inside. */}
-      {!hasPhoto && (
-        <group>
-          {[-1, 1].map((sign) => (
-            <mesh
-              key={`front-base-${sign}`}
-              position={[sign * (opening.width / 2 + 3.5 + (sideBase - 3.5) / 2), 2.75, frontZ + 0.35]}
-            >
-              <boxGeometry args={[Math.max(sideBase - 3.5, 0.1), 5.5, 0.7]} />
-              <meshStandardMaterial color={trim} roughness={0.6} />
-            </mesh>
-          ))}
-          {[-1, 1].map((sign) => (
-            <mesh
-              key={`casing-${sign}`}
-              position={[sign * (opening.width / 2 + 1.75), (opening.height + 3.5) / 2, frontZ + 0.4]}
-            >
-              <boxGeometry args={[3.5, opening.height + 3.5, 0.8]} />
-              <meshStandardMaterial color={trim} roughness={0.55} />
-            </mesh>
-          ))}
-          <mesh position={[0, opening.height + 1.75, frontZ + 0.4]}>
-            <boxGeometry args={[opening.width, 3.5, 0.8]} />
-            <meshStandardMaterial color={trim} roughness={0.55} />
-          </mesh>
-        </group>
-      )}
-    </group>
-  );
+/** Moves the camera toward its target until nothing but the photo is in view. */
+function keepInsidePhoto(camera: THREE.Camera, target: THREE.Vector3, fit: Framing) {
+  if (seesOnlyPhoto(camera, fit)) return;
+  const away = camera.position.clone().sub(target);
+  const far = away.length();
+  away.normalize();
+  let near = Math.min(MIN_DISTANCE, far);
+  let outer = far;
+  for (let step = 0; step < 18; step += 1) {
+    const middle = (near + outer) / 2;
+    camera.position.copy(target).addScaledVector(away, middle);
+    if (seesOnlyPhoto(camera, fit)) near = middle;
+    else outer = middle;
+  }
+  camera.position.copy(target).addScaledVector(away, near);
+  camera.updateMatrixWorld();
 }
 
 function ViewerControls({
   opening,
-  mark,
-  doorOpen,
+  facade,
+  insideFacade,
   viewName,
   viewNonce,
   paused,
 }: {
   opening: Opening;
-  mark: DoorMark;
-  doorOpen: number;
+  facade: Facade;
+  insideFacade: Facade | null;
   viewName: PlannerView;
   viewNonce: number;
-  /** True while the reveal owns the camera. */
+  /** True while the reveal plays: the camera holds still. */
   paused: boolean;
 }) {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const orbit = useRef<OrbitControlsImpl>(null);
-  const walk = useRef<PointerLockControlsImpl>(null);
-  const keys = useRef({
-    KeyW: false,
-    KeyA: false,
-    KeyS: false,
-    KeyD: false,
-    ArrowUp: false,
-    ArrowLeft: false,
-    ArrowDown: false,
-    ArrowRight: false,
-  });
-  const openRef = useRef(doorOpen);
-  const [locked, setLocked] = useState(false);
-  const facade = useMemo(() => facadeFromMark(opening, mark), [opening, mark]);
-  const bounds = walkBounds(opening, facade);
-  // A phone held upright needs to stand farther back to see the whole door.
-  const farthest = () => Math.min(bounds.minZ, exteriorZ(camera, opening, facade) - 24);
+  const fit = useMemo(
+    () => framing(viewName, opening, facade, insideFacade),
+    [facade, insideFacade, opening, viewName],
+  );
 
+  // The WebGL camera is a mutable scene object; views and limits move it in place.
   useEffect(() => {
-    openRef.current = doorOpen;
-  }, [doorOpen]);
-
-  useEffect(() => {
-    const setKey = (event: KeyboardEvent, down: boolean) => {
-      if (event.code in keys.current) {
-        keys.current[event.code as keyof typeof keys.current] = down;
-        if (down && document.pointerLockElement && event.code.startsWith("Arrow")) {
-          event.preventDefault();
-        }
-      }
-    };
-    const onDown = (event: KeyboardEvent) => setKey(event, true);
-    const onUp = (event: KeyboardEvent) => setKey(event, false);
-    window.addEventListener("keydown", onDown);
-    window.addEventListener("keyup", onUp);
-    return () => {
-      window.removeEventListener("keydown", onDown);
-      window.removeEventListener("keyup", onUp);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (document.pointerLockElement) document.exitPointerLock();
-    const pose = cameraPose(viewName, opening, facade);
-    camera.position.set(
-      pose.position[0],
-      pose.position[1],
-      viewName === "exterior"
-        ? exteriorZ(camera, opening, facade)
-        : viewName === "inside"
-          ? insideZ(camera, opening)
-          : pose.position[2],
-    );
-    camera.lookAt(...pose.target);
-    orbit.current?.target.set(...pose.target);
+    camera.position.set(fit.target.x, fit.target.y, fit.target.z + fit.side * fit.distance);
+    camera.lookAt(fit.target);
+    keepInsidePhoto(camera, fit.target, fit);
+    orbit.current?.target.copy(fit.target);
     orbit.current?.update();
-  }, [camera, facade, opening, viewName, viewNonce]);
+    // The screen size is a dependency so turning the phone refits the view.
+  }, [camera, fit, size.width, size.height, viewNonce]);
 
-  // The WebGL camera is a mutable scene object. Walk mode and orbit limits update it in place.
-  /* eslint-disable react-hooks/immutability */
-  useFrame((_, delta) => {
-    const controls = walk.current;
-    if (!controls?.isLocked) return;
-    const previous = camera.position.clone();
-    const speed = 48 * Math.min(delta, 0.05);
-    const pressed = keys.current;
-    if (pressed.KeyW || pressed.ArrowUp) controls.moveForward(speed);
-    if (pressed.KeyS || pressed.ArrowDown) controls.moveForward(-speed);
-    if (pressed.KeyA || pressed.ArrowLeft) controls.moveRight(-speed);
-    if (pressed.KeyD || pressed.ArrowRight) controls.moveRight(speed);
-    camera.position.y = bounds.eye;
-    camera.position.x = clampNumber(camera.position.x, bounds.minX, bounds.maxX);
-    camera.position.z = clampNumber(camera.position.z, farthest(), bounds.maxZ);
-    if (cameraBlocked(camera.position.x, camera.position.z, opening, openRef.current)) {
-      camera.position.copy(previous);
-      camera.position.y = bounds.eye;
-    }
-  });
-
-  const span = Math.max(facade.width, facade.height, 120);
+  // Face-on is azimuth 0 from inside and half a turn from outside.
+  const facing = fit.side === 1 ? 0 : Math.PI;
 
   return (
-    <>
-      <OrbitControls
-        enablePan={false}
-        enabled={!locked && !paused}
-        maxDistance={Math.max(span * 2.2, -farthest() + 40)}
-        maxPolarAngle={Math.PI / 2 - 0.04}
-        minDistance={16}
-        onChange={() => {
-          if (walk.current?.isLocked) return;
-          const outside = camera.position.z < 0;
-          const xLimit = outside ? Math.max(bounds.maxX, facade.width / 2) : bounds.maxX;
-          const maxY = outside ? Math.max(facade.top, 96) : entryRoom(opening).ceiling - 8;
-          camera.position.x = clampNumber(camera.position.x, -xLimit, xLimit);
-          camera.position.z = clampNumber(camera.position.z, farthest(), bounds.maxZ);
-          camera.position.y = clampNumber(camera.position.y, 12, maxY);
-          if (cameraBlocked(camera.position.x, camera.position.z, opening, openRef.current)) {
-            const outside = camera.position.z < opening.jambDepth / 2;
-            const clearOfOutswing = -(doorLeaf(opening).width + 10);
-            camera.position.z = outside
-              ? opening.swing === "out" && openRef.current >= 0.72
-                ? clearOfOutswing
-                : -12
-              : opening.jambDepth + 18;
-          }
-        }}
-        ref={orbit}
-      />
-      {/* eslint-enable react-hooks/immutability */}
-      <PointerLockControls
-        onLock={() => setLocked(true)}
-        onUnlock={() => {
-          setLocked(false);
-          const direction = new THREE.Vector3();
-          camera.getWorldDirection(direction);
-          orbit.current?.target.copy(camera.position).add(direction.multiplyScalar(48));
-        }}
-        ref={walk}
-        selector="#planner-walk"
-      />
-    </>
+    <OrbitControls
+      enablePan={false}
+      enabled={!paused}
+      maxAzimuthAngle={facing + 0.3}
+      maxDistance={2000}
+      maxPolarAngle={Math.PI / 2 + 0.12}
+      minAzimuthAngle={facing - 0.3}
+      minDistance={MIN_DISTANCE}
+      minPolarAngle={Math.PI / 2 - 0.2}
+      onChange={() => {
+        const controls = orbit.current;
+        if (controls) keepInsidePhoto(camera, controls.target, fit);
+      }}
+      ref={orbit}
+    />
   );
 }
 

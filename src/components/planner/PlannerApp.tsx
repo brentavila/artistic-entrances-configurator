@@ -693,8 +693,8 @@ export function PlannerApp() {
               <h2>Walk the entry</h2>
               <p className="section-copy">
                 {door.name} in a {formatInches(opening.width)} by {formatInches(opening.height)} rough
-                opening. {handingLabel(opening)}. Drag to look around, and scroll
-                to move closer. On a desktop, Walk uses the mouse and WASD keys.
+                opening. {handingLabel(opening)}. Only your door and frame are
+                replaced; the rest is your photo as taken.
               </p>
             </div>
             <EntryViewer
@@ -715,7 +715,9 @@ export function PlannerApp() {
             />
             <div className="planner-hud">
               <div className="planner-views" role="group" aria-label="Camera views">
-                {views.map((view) => (
+                {views
+                  .filter((view) => view.id !== "inside" || insideUrl)
+                  .map((view) => (
                   <button
                     aria-pressed={view.id === viewName}
                     className={view.id === viewName ? "planner-view selected" : "planner-view"}
@@ -726,9 +728,6 @@ export function PlannerApp() {
                     {view.label}
                   </button>
                 ))}
-                <button className="planner-view planner-walk" id="planner-walk" type="button">
-                  Walk
-                </button>
               </div>
               <div className="planner-reveal">
                 <button
@@ -768,9 +767,9 @@ export function PlannerApp() {
               </label>
             </div>
             <p className="planner-note">
-              Drag to look and scroll to move closer. On desktop, Walk captures
-              the mouse: use WASD, then Escape to stop. Open the door before
-              you step through.
+              Drag to look and pinch or scroll to move closer.
+              {!insideUrl &&
+                " To see the door from inside, go back and add a photo from inside."}
             </p>
             <p className="preview-disclaimer">
               This is a visual preview sized from the measurements you entered.
