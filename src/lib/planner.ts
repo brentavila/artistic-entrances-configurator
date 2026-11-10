@@ -201,10 +201,18 @@ export function plannerSummary(doorName: string, opening: Opening) {
   ].join(" ");
 }
 
-export function facadeFromMark(opening: Opening, mark: DoorMark): Facade {
+// World +X is on the viewer's left from outside and on their right from
+// inside. An exterior photo is therefore laid out from its right edge, and an
+// interior photo from its left edge, so an off-center door lands where it is.
+export function facadeFromMark(
+  opening: Opening,
+  mark: DoorMark,
+  side: "exterior" | "interior" = "exterior",
+): Facade {
   const width = opening.width / mark.width;
   const height = opening.height / mark.height;
-  const left = -opening.width / 2 - mark.x * width;
+  const before = side === "exterior" ? 1 - mark.x - mark.width : mark.x;
+  const left = -opening.width / 2 - before * width;
   const top = opening.height + mark.y * height;
   return {
     left,
@@ -224,6 +232,29 @@ export function facadeRects(facade: Facade, opening: Opening): WallRect[] {
     { id: "right", x0: ox1, x1: facade.right, y0: facade.bottom, y1: facade.top },
     { id: "head", x0: ox0, x1: ox1, y0: opening.height, y1: facade.top },
     { id: "sill", x0: ox0, x1: ox1, y0: facade.bottom, y1: 0 },
+  ];
+  return candidates.filter(
+    (rect) => rect.x1 - rect.x0 > 0.5 && rect.y1 - rect.y0 > 0.5,
+  );
+}
+
+/** The parts of a wall of the given size that surround the opening. */
+export function wallRects(
+  bounds: { left: number; right: number; bottom: number; top: number },
+  opening: Opening,
+  clip?: { left: number; right: number; bottom: number; top: number },
+): WallRect[] {
+  const ox0 = -opening.width / 2;
+  const ox1 = opening.width / 2;
+  const left = Math.max(bounds.left, clip?.left ?? -Infinity);
+  const right = Math.min(bounds.right, clip?.right ?? Infinity);
+  const bottom = Math.max(bounds.bottom, clip?.bottom ?? -Infinity);
+  const top = Math.min(bounds.top, clip?.top ?? Infinity);
+  const candidates: WallRect[] = [
+    { id: "left", x0: left, x1: Math.min(ox0, right), y0: bottom, y1: top },
+    { id: "right", x0: Math.max(ox1, left), x1: right, y0: bottom, y1: top },
+    { id: "head", x0: ox0, x1: ox1, y0: Math.max(opening.height, bottom), y1: top },
+    { id: "sill", x0: ox0, x1: ox1, y0: bottom, y1: Math.min(0, top) },
   ];
   return candidates.filter(
     (rect) => rect.x1 - rect.x0 > 0.5 && rect.y1 - rect.y0 > 0.5,
@@ -584,6 +615,78 @@ function orientContext(
     default:
       break;
   }
+}
+
+/**
+ * Marks the glass in a cropped catalog photo. The doors are shot on white, so
+ * glass shows as bright, colorless areas inside the ironwork. Returns one byte
+ * per pixel (1 = glass), or null when the photo has no clear glass to cut out.
+ */
+export function glassMask(
+  data: Uint8ClampedArray | Uint8Array,
+  width: number,
+  height: number,
+): Uint8Array | null {
+  const raw = new Uint8Array(width * height);
+  for (let pixel = 0; pixel < raw.length; pixel += 1) {
+    const index = pixel * 4;
+    const max = Math.max(data[index], data[index + 1], data[index + 2]);
+    const min = Math.min(data[index], data[index + 1], data[index + 2]);
+    raw[pixel] = max > 168 && max - min < 40 ? 1 : 0;
+  }
+
+  // Keep a pixel as glass only when most of its neighbors agree. This drops
+  // highlights on the iron and keeps thin scrollwork from breaking up.
+  const glass = new Uint8Array(width * height);
+  let total = 0;
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      let votes = 0;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          votes += raw[(y + dy) * width + x + dx];
+        }
+      }
+      if (votes >= 7) {
+        glass[y * width + x] = 1;
+        total += 1;
+      }
+    }
+  }
+  const share = total / (width * height);
+  if (share < 0.06 || share > 0.8) return null;
+  return glass;
+}
+
+export type DoorLayers = {
+  /** The door photo, cropped to the door. */
+  colorUrl: string;
+  /** White where there is iron, black where there is glass. Null for a solid door. */
+  ironUrl: string | null;
+};
+
+export async function doorLayers(url: string, maxEdge: number): Promise<DoorLayers> {
+  const colorUrl = await doorTextureUrl(url, maxEdge);
+  const image = await loadImage(colorUrl);
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return { colorUrl, ironUrl: null };
+  context.drawImage(image, 0, 0);
+  const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+  const glass = glassMask(frame.data, canvas.width, canvas.height);
+  if (!glass) return { colorUrl, ironUrl: null };
+  for (let pixel = 0; pixel < glass.length; pixel += 1) {
+    const value = glass[pixel] ? 0 : 255;
+    const index = pixel * 4;
+    frame.data[index] = value;
+    frame.data[index + 1] = value;
+    frame.data[index + 2] = value;
+    frame.data[index + 3] = 255;
+  }
+  context.putImageData(frame, 0, 0);
+  return { colorUrl, ironUrl: canvas.toDataURL("image/png") };
 }
 
 export async function doorTextureUrl(url: string, maxEdge: number) {

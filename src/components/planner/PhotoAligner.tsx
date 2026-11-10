@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyboardEvent, PointerEvent, useRef } from "react";
+import { KeyboardEvent, MouseEvent, PointerEvent, useRef } from "react";
 import { DoorMark, MIN_MARK, clamp } from "@/lib/planner";
 
 type Handle = "move" | "nw" | "ne" | "sw" | "se";
@@ -9,15 +9,35 @@ export function PhotoAligner({
   imageUrl,
   mark,
   onChange,
+  overlayUrl,
+  onPick,
+  onAdjustStart,
+  onAdjustEnd,
 }: {
   imageUrl: string;
   mark: DoorMark;
   onChange: (mark: DoorMark) => void;
+  /** Tint showing the door the phone outlined. */
+  overlayUrl?: string | null;
+  /** A tap on the photo outside the box: outline whatever is there. */
+  onPick?: (point: { x: number; y: number }) => void;
+  /** The customer grabbed the box or a corner. */
+  onAdjustStart?: () => void;
+  /** The customer let go after moving the box or a corner. */
+  onAdjustEnd?: (mark: DoorMark) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ mode: Handle; x: number; y: number; mark: DoorMark } | null>(
-    null,
-  );
+  const drag = useRef<{
+    mode: Handle;
+    x: number;
+    y: number;
+    mark: DoorMark;
+    moved: boolean;
+    latest: DoorMark;
+  } | null>(null);
+  // Set when a press began on the box. The browser follows every drag with a
+  // click on the photo, and that click must not re-outline the door.
+  const swallowClick = useRef(false);
 
   function ratio(event: PointerEvent<HTMLDivElement>) {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -39,15 +59,39 @@ export function PhotoAligner({
         ? handle
         : "move";
     event.preventDefault();
-    drag.current = { mode, x: point.x, y: point.y, mark };
+    swallowClick.current = true;
+    drag.current = { mode, x: point.x, y: point.y, mark, moved: false, latest: mark };
     event.currentTarget.setPointerCapture(event.pointerId);
+    onAdjustStart?.();
   }
 
   function moveDrag(event: PointerEvent<HTMLDivElement>) {
     const current = drag.current;
     const point = ratio(event);
     if (!current || !point) return;
-    onChange(nextMark(current.mode, current.mark, current, point));
+    current.moved = true;
+    current.latest = nextMark(current.mode, current.mark, current, point);
+    onChange(current.latest);
+  }
+
+  function endDrag() {
+    const current = drag.current;
+    drag.current = null;
+    if (current?.moved) onAdjustEnd?.(current.latest);
+  }
+
+  function pick(event: MouseEvent<HTMLDivElement>) {
+    if (swallowClick.current) {
+      swallowClick.current = false;
+      return;
+    }
+    if (!onPick || (event.target as HTMLElement).closest(".photo-box")) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (bounds.width === 0 || bounds.height === 0) return;
+    onPick({
+      x: clamp((event.clientX - bounds.left) / bounds.width, 0, 1),
+      y: clamp((event.clientY - bounds.top) / bounds.height, 0, 1),
+    });
   }
 
   function nudge(event: KeyboardEvent<HTMLDivElement>) {
@@ -74,18 +118,22 @@ export function PhotoAligner({
     <div
       aria-label="Door area on your photo. Drag the box onto the existing door. Arrow keys move it. Plus and minus resize it."
       className="photo-aligner"
+      onClick={pick}
       onKeyDown={nudge}
       onPointerDown={startDrag}
       onPointerMove={moveDrag}
-      onPointerUp={() => {
-        drag.current = null;
-      }}
+      onPointerCancel={endDrag}
+      onPointerUp={endDrag}
       ref={frame}
       role="application"
       tabIndex={0}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img alt="Your current front entry" draggable={false} src={imageUrl} />
+      {overlayUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt="" aria-hidden className="photo-outline" draggable={false} src={overlayUrl} />
+      )}
       <div
         className="photo-box"
         style={{

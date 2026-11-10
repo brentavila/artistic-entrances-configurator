@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { catalog, optionById } from "@/lib/catalog";
 import {
@@ -21,6 +21,8 @@ import {
   plannerSummary,
 } from "@/lib/planner";
 import { PhotoAligner } from "@/components/planner/PhotoAligner";
+import { segmentDoor, warmSegmenter } from "@/lib/segment";
+import { CleanPlate, boxMaskUrl, requestCleanPlate } from "@/lib/clean-plate";
 
 const EntryViewer = dynamic(
   () => import("@/components/planner/EntryViewer").then((mod) => mod.EntryViewer),
@@ -30,6 +32,7 @@ const EntryViewer = dynamic(
   },
 );
 
+type Outlining = "idle" | "working" | "found" | "ready" | "missed" | "snapped" | "manual";
 type Step = "door" | "opening" | "photo" | "walk" | "quote";
 
 const steps: Array<{ id: Step; label: string }> = [
@@ -71,8 +74,22 @@ export function PlannerApp() {
   const [frontFile, setFrontFile] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [readingPhoto, setReadingPhoto] = useState(false);
-  const [extras, setExtras] = useState<File[]>([]);
+  const [insideFile, setInsideFile] = useState<File | null>(null);
+  const [insideUrl, setInsideUrl] = useState<string | null>(null);
+  const [insideMark, setInsideMark] = useState<DoorMark>(defaultDoorMark);
+  const [insideOutlineUrl, setInsideOutlineUrl] = useState<string | null>(null);
+  const [insideOutlining, setInsideOutlining] = useState<Outlining>("idle");
+  const insideRun = useRef(0);
+  const [openFile, setOpenFile] = useState<File | null>(null);
   const [mark, setMark] = useState<DoorMark>(defaultDoorMark);
+  const [outlineUrl, setOutlineUrl] = useState<string | null>(null);
+  const [outlining, setOutlining] = useState<Outlining>("idle");
+  const outlineRun = useRef(0);
+  const [plate, setPlate] = useState<CleanPlate | null>(null);
+  const plateJob = useRef<{ timer: number; abort: AbortController } | null>(null);
+  const [revealNonce, setRevealNonce] = useState(0);
+  const [revealing, setRevealing] = useState(false);
+  const [compare, setCompare] = useState(0);
   const [doorOpen, setDoorOpen] = useState(0);
   const [viewName, setViewName] = useState<PlannerView>("exterior");
   const [viewNonce, setViewNonce] = useState(0);
@@ -98,6 +115,90 @@ export function PlannerApp() {
     );
   }, [doorQuery]);
 
+  // The outline model is a few megabytes. Fetch it while the customer is
+  // still entering measurements so the photo step feels instant.
+  useEffect(() => {
+    if (step === "opening" || step === "photo") warmSegmenter();
+  }, [step]);
+
+  function cancelCleanPlate() {
+    if (!plateJob.current) return;
+    window.clearTimeout(plateJob.current.timer);
+    plateJob.current.abort.abort();
+    plateJob.current = null;
+  }
+
+  // Painting the old door out is a paid server call, so it waits a moment in
+  // case the customer taps again, and only the latest outline is sent.
+  function startCleanPlate(url: string, maskUrl: string, snap = true) {
+    cancelCleanPlate();
+    setPlate(null);
+    const abort = new AbortController();
+    const timer = window.setTimeout(async () => {
+      const report = (result: string, refined = false) =>
+        track("planner_clean_plate", { door_id: door.id, result, refined });
+      try {
+        const result = await requestCleanPlate(url, maskUrl, abort.signal);
+        if (abort.signal.aborted) return;
+        if (result.ok) {
+          setPlate(result.plate);
+          // The server found the whole door: fit the box to it, unless the
+          // customer placed the box by hand (a drag cancels this request).
+          if (snap && result.plate.door) {
+            setMark(result.plate.door);
+            setOutlineUrl(null);
+            setOutlining("snapped");
+          } else {
+            setOutlining((now) => (now === "found" ? "ready" : now));
+          }
+        }
+        // Without the server's help the phone's outline stands as it is.
+        if (!result.ok) setOutlining((now) => (now === "found" ? "ready" : now));
+        report(result.ok ? "ready" : result.reason, result.ok && result.plate.refined);
+      } catch {
+        if (abort.signal.aborted) return;
+        setOutlining((now) => (now === "found" ? "ready" : now));
+        report("error");
+      }
+    }, 1500);
+    plateJob.current = { timer, abort };
+  }
+
+  useEffect(() => cancelCleanPlate, []);
+
+  async function outlineDoor(
+    url: string,
+    point: { x: number; y: number },
+    source: "auto" | "tap",
+    photo: "front" | "inside" = "front",
+  ) {
+    const front = photo === "front";
+    const counter = front ? outlineRun : insideRun;
+    const setStatus = front ? setOutlining : setInsideOutlining;
+    const run = (counter.current += 1);
+    const report = (result: string) =>
+      track("planner_outline", { door_id: door.id, photo, source, result });
+    setStatus("working");
+    try {
+      const outline = await segmentDoor(url, point);
+      if (run !== counter.current) return;
+      if (!outline) {
+        setStatus("missed");
+        report("missed");
+        return;
+      }
+      (front ? setMark : setInsideMark)(outline.mark);
+      (front ? setOutlineUrl : setInsideOutlineUrl)(outline.overlayUrl);
+      setStatus("found");
+      report("found");
+      if (front) startCleanPlate(url, outline.maskUrl);
+    } catch {
+      if (run !== counter.current) return;
+      setStatus("missed");
+      report("error");
+    }
+  }
+
   function go(next: Step) {
     setMessage("");
     setStep(next);
@@ -122,6 +223,12 @@ export function PlannerApp() {
       setFrontFile(file);
       setPhotoUrl(preview);
       setMark(defaultDoorMark);
+      setOutlineUrl(null);
+      cancelCleanPlate();
+      setPlate(null);
+      track("planner_photo", { door_id: door.id });
+      // Most entry photos have the door near the middle, a little below center.
+      void outlineDoor(preview, { x: 0.5, y: 0.55 }, "auto");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not read that photo.");
     } finally {
@@ -129,7 +236,7 @@ export function PlannerApp() {
     }
   }
 
-  function addExtra(file: File | undefined) {
+  async function chooseInside(file: File | undefined) {
     if (!file) return;
     const error = photoError(file);
     if (error) {
@@ -137,7 +244,37 @@ export function PlannerApp() {
       return;
     }
     setMessage("");
-    setExtras((current) => (current.length >= 3 ? current : [...current, file]));
+    try {
+      const preview = await fileToPreviewUrl(file, 2048);
+      setInsideFile(file);
+      setInsideUrl(preview);
+      setInsideMark(defaultDoorMark);
+      setInsideOutlineUrl(null);
+      track("planner_photo", { door_id: door.id, photo: "inside" });
+      void outlineDoor(preview, { x: 0.5, y: 0.55 }, "auto", "inside");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not read that photo.");
+    }
+  }
+
+  function removeInside() {
+    insideRun.current += 1;
+    setInsideFile(null);
+    setInsideUrl(null);
+    setInsideOutlineUrl(null);
+    setInsideOutlining("idle");
+  }
+
+  function chooseOpen(file: File | undefined) {
+    if (!file) return;
+    const error = photoError(file);
+    if (error) {
+      setMessage(error);
+      return;
+    }
+    setMessage("");
+    setOpenFile(file);
+    track("planner_photo", { door_id: door.id, photo: "door_open" });
   }
 
   function continueOpening() {
@@ -155,14 +292,27 @@ export function PlannerApp() {
       setMessage("Add a straight-on photo of the entry.");
       return;
     }
-    const error = markError(mark);
+    const error = markError(mark) ?? (insideUrl ? markError(insideMark) : null);
     if (error) {
       setMessage(error);
       return;
     }
     setViewName("exterior");
     setViewNonce((value) => value + 1);
+    setCompare(0);
+    setRevealing(true);
+    setRevealNonce((value) => value + 1);
     go("walk");
+  }
+
+  function replayReveal() {
+    setDoorOpen(0);
+    setCompare(0);
+    setViewName("exterior");
+    setRevealing(true);
+    setViewNonce((value) => value + 1);
+    setRevealNonce((value) => value + 1);
+    track("planner_reveal_replay", { door_id: door.id });
   }
 
   function showView(next: PlannerView) {
@@ -197,7 +347,8 @@ export function PlannerApp() {
     form.set("leadSource", "entry-planner");
     form.set("sourceUrl", window.location.href);
     form.set("entryPhoto", frontFile);
-    extras.forEach((file, index) => form.set(`entryPhoto${index + 2}`, file));
+    if (insideFile) form.set("entryPhoto2", insideFile);
+    if (openFile) form.set("entryPhoto3", openFile);
 
     const query = new URLSearchParams(window.location.search);
     ["utm_source", "utm_medium", "utm_campaign", "utm_content", "gclid"].forEach((key) => {
@@ -382,9 +533,9 @@ export function PlannerApp() {
             <p className="eyebrow">Step 3 of 5</p>
             <h2>Mark the door on your home</h2>
             <p className="section-copy">
-              Use a straight-on photo of the front entry. Drag the box until it
-              covers only the existing door. The rest of the photo becomes the
-              wall around the new door.
+              Use a straight-on photo of the front entry. We outline your
+              existing door for you. If the outline is off, tap the door in
+              the photo or drag the box until it covers only the door.
             </p>
             <div className="quote-form">
               <label>
@@ -401,41 +552,123 @@ export function PlannerApp() {
             </div>
             {readingPhoto && <p className="planner-note">Preparing the photo…</p>}
             {frontFile && <p className="planner-note">Using {frontFile.name}</p>}
-            {photoUrl && <PhotoAligner imageUrl={photoUrl} mark={mark} onChange={setMark} />}
-            <div className="quote-form">
-              <label>
-                Other photos, up to 3 (optional)
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  disabled={extras.length >= 3}
-                  onChange={(event) => {
-                    addExtra(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                  type="file"
-                />
-              </label>
+            {photoUrl && (
+              <p aria-live="polite" className="planner-note planner-outline-status">
+                {outlining === "working" && "Finding your door…"}
+                {outlining === "found" &&
+                  "Door outlined. Fine-tuning the edges… If it is off, tap the door or drag a corner."}
+                {outlining === "ready" && "Door outlined. If it is off, tap the door or drag a corner."}
+                {outlining === "snapped" && "Box fitted to your whole door. Drag a corner if it needs a nudge."}
+                {outlining === "manual" && "Got it. We will use the box where you placed it."}
+                {outlining === "missed" &&
+                  "We could not outline the door. Tap it in the photo, or drag the box over it."}
+              </p>
+            )}
+            {photoUrl && (
+              <PhotoAligner
+                imageUrl={photoUrl}
+                mark={mark}
+                onChange={setMark}
+                onAdjustEnd={(next) => {
+                  setOutlineUrl(null);
+                  setOutlining("manual");
+                  track("planner_outline_adjust", { door_id: door.id });
+                  void photoAspect(photoUrl).then((aspect) =>
+                    startCleanPlate(photoUrl, boxMaskUrl(next, aspect), false),
+                  );
+                }}
+                onAdjustStart={() => {
+                  // Stop anything that would move the box under the customer's finger.
+                  outlineRun.current += 1;
+                  cancelCleanPlate();
+                }}
+                onPick={(point) => void outlineDoor(photoUrl, point, "tap")}
+                overlayUrl={outlineUrl}
+              />
+            )}
+            <div className="planner-extra">
+              <p className="eyebrow">Optional</p>
+              <h3>Add the view from inside</h3>
+              <p className="planner-note">
+                Stand inside, face the door straight on, and fit the whole door
+                in the frame. The Inside view then shows your own entry around
+                the new door. Without it, we show a neutral foyer.
+              </p>
+              <div className="quote-form">
+                <label>
+                  Photo from inside, door closed
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => {
+                      void chooseInside(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                    type="file"
+                  />
+                </label>
+              </div>
+              {insideUrl && (
+                <>
+                  <p aria-live="polite" className="planner-note planner-outline-status">
+                    {insideOutlining === "working" && "Finding your door…"}
+                    {insideOutlining === "found" &&
+                      "Door outlined. Tap the photo or drag the corners to adjust."}
+                    {insideOutlining === "missed" &&
+                      "We could not outline the door. Tap it in the photo, or drag the box over it."}
+                  </p>
+                  <PhotoAligner
+                    imageUrl={insideUrl}
+                    mark={insideMark}
+                    onChange={setInsideMark}
+                    onAdjustEnd={() => {
+                      setInsideOutlineUrl(null);
+                      setInsideOutlining("manual");
+                    }}
+                    onAdjustStart={() => {
+                      insideRun.current += 1;
+                    }}
+                    onPick={(point) => void outlineDoor(insideUrl, point, "tap", "inside")}
+                    overlayUrl={insideOutlineUrl}
+                  />
+                  <button className="text-action" onClick={removeInside} type="button">
+                    Remove the inside photo
+                  </button>
+                </>
+              )}
             </div>
-            <p className="planner-note">
-              Side, interior, and detail photos are sent with your quote. They are
-              not used in the 3D view.
-            </p>
-            {extras.length > 0 && (
-              <ul className="planner-files">
-                {extras.map((file, index) => (
-                  <li key={`${file.name}-${file.size}-${index}`}>
-                    <span>{file.name}</span>
-                    <button
-                      className="text-action"
-                      onClick={() => setExtras(extras.filter((_, item) => item !== index))}
-                      type="button"
-                    >
+            <div className="planner-extra">
+              <p className="eyebrow">Optional</p>
+              <h3>Add a photo with the door open</h3>
+              <p className="planner-note">
+                From outside, open the door all the way and take one more photo.
+                It shows us the jamb, the threshold, and the swing, so we can
+                confirm the fit. It is sent with your quote and is not used in
+                the 3D view.
+              </p>
+              <div className="quote-form">
+                <label>
+                  Photo from outside, door open
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => {
+                      chooseOpen(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                    type="file"
+                  />
+                </label>
+              </div>
+              {openFile && (
+                <ul className="planner-files">
+                  <li>
+                    <span>{openFile.name}</span>
+                    <button className="text-action" onClick={() => setOpenFile(null)} type="button">
                       Remove
                     </button>
                   </li>
-                ))}
-              </ul>
-            )}
+                </ul>
+              )}
+            </div>
             {message && <p className="form-error">{message}</p>}
             <div className="button-row">
               <button className="text-action" onClick={() => go("opening")} type="button">
@@ -466,10 +699,17 @@ export function PlannerApp() {
             </div>
             <EntryViewer
               doorImageUrl={door.imageUrl}
+              compare={compare}
+              interiorMark={insideMark}
+              interiorPhotoUrl={insideUrl}
               doorOpen={doorOpen}
               mark={mark}
+              onRevealEnd={() => setRevealing(false)}
               opening={opening}
               photoUrl={photoUrl}
+              plateUrl={plate?.plateUrl}
+              removed={plate?.removed}
+              revealNonce={revealNonce}
               viewName={viewName}
               viewNonce={viewNonce}
             />
@@ -489,6 +729,32 @@ export function PlannerApp() {
                 <button className="planner-view planner-walk" id="planner-walk" type="button">
                   Walk
                 </button>
+              </div>
+              <div className="planner-reveal">
+                <button
+                  className="planner-view"
+                  disabled={revealing}
+                  onClick={replayReveal}
+                  type="button"
+                >
+                  {revealing ? "Revealing…" : "Replay the reveal"}
+                </button>
+                <label className="planner-open">
+                  <span className="planner-compare-ends">
+                    <span>New door</span>
+                    <span>Your door today</span>
+                  </span>
+                  <input
+                    aria-label="Compare the new door with your door today"
+                    disabled={revealing}
+                    max={100}
+                    min={0}
+                    onChange={(event) => setCompare(Number(event.target.value) / 100)}
+                    onPointerUp={() => track("planner_compare", { door_id: door.id })}
+                    type="range"
+                    value={Math.round(compare * 100)}
+                  />
+                </label>
               </div>
               <label className="planner-open">
                 Open the door
@@ -630,6 +896,15 @@ export function PlannerApp() {
       </div>
     </>
   );
+}
+
+function photoAspect(url: string) {
+  return new Promise<number>((resolve) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image.width / Math.max(1, image.height));
+    image.onerror = () => resolve(3 / 4);
+    image.src = url;
+  });
 }
 
 function SelectedDoor({
