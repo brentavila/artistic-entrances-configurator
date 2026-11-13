@@ -4,15 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 import heroData from "@/data/hero-doors.json";
+import { selectDoor, track, trackOption, viewDoor, type DoorLike } from "@/lib/analytics";
 import { business } from "@/lib/business";
 import { HERO_STATIC_CSS } from "./hero-static-css";
 import "@/styles/hero.css";
-
-declare global {
-  interface Window {
-    dataLayer?: Array<Record<string, unknown>>;
-  }
-}
 
 type Layout = "single" | "double";
 type HeroDoor = { id: string; name: string; cutout: string; thumb: string };
@@ -45,9 +40,15 @@ const srcSet = (sources: Array<{ src: string; width: number }>) =>
 // The plate is drawn at "cover" size: as wide as the stage, or 16:9 of its height.
 const PLATE_SIZES = "(max-aspect-ratio: 16/9) calc((100vh - 78px) * 1.78), 100vw";
 
-function track(event: string, values: Record<string, unknown>) {
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event, ...values });
+const HERO_LIST = { id: "hero", name: "Home page hero" };
+
+function heroDoor(door: HeroDoor, layout: Layout): DoorLike {
+  return {
+    id: door.id,
+    name: door.name,
+    layout,
+    configuration: layout === "single" ? "Single door" : "Double door",
+  };
 }
 
 function DoorIcon({ layout }: { layout: Layout }) {
@@ -234,6 +235,7 @@ export function HeroShowcase() {
       leaveTimer.current = window.setTimeout(() => setLeaving(null), 700);
       setIndices((value) => ({ ...value, [layout]: next }));
       setAnnounce(`${list[next].name}, ${next + 1} of ${list.length}, ${layout} door`);
+      viewDoor(heroDoor(list[next], layout), { listId: HERO_LIST.id, listName: HERO_LIST.name, index: next });
       track("hero_door_change", { door_id: list[next].id, layout, method });
     },
     [ensureInteractive, indices, layout],
@@ -252,6 +254,7 @@ export function HeroShowcase() {
     const list = data[next].doors;
     const i = indices[next];
     setAnnounce(`${next === "single" ? "Single" : "Double"} door. ${list[i].name}, ${i + 1} of ${list.length}`);
+    trackOption("layout", next);
     track("hero_layout_toggle", { layout: next });
   };
 
@@ -446,6 +449,8 @@ export function HeroShowcase() {
   };
 
   const designHref = (id: string) => `/design-your-door?door=${encodeURIComponent(id)}`;
+  const pickDoor = (door: HeroDoor, position: number) =>
+    selectDoor(heroDoor(door, layout), HERO_LIST, { index: position });
   const plannerHref = (id: string) => `/planner?door=${encodeURIComponent(id)}`;
 
   return (
@@ -500,7 +505,12 @@ export function HeroShowcase() {
                       <img src={door.thumb} alt="" loading="lazy" decoding="async" draggable={false} />
                       <span className="hx-card-name">{door.name}</span>
                     </button>
-                    <a className="hx-card-link" href={designHref(door.id)}>
+                    <a
+                      className="hx-card-link"
+                      href={designHref(door.id)}
+                      data-cta="hero_card_design_door"
+                      onClick={() => pickDoor(door, i)}
+                    >
                       Design this door
                     </a>
                     </div>
@@ -548,10 +558,10 @@ export function HeroShowcase() {
                 measurements before anything is built.
               </p>
               <div className="hx-actions">
-                <a className="hx-btn hx-btn-primary" href="/design-your-door">
+                <a className="hx-btn hx-btn-primary" href="/design-your-door" data-cta="design_your_door" data-cta-location="hero">
                   Design Your Door
                 </a>
-                <Link className="hx-btn hx-btn-ghost" href="/planner">
+                <Link className="hx-btn hx-btn-ghost" href="/planner" data-cta="see_it_on_your_home" data-cta-location="hero">
                   See it on your home
                 </Link>
               </div>
@@ -586,10 +596,20 @@ export function HeroShowcase() {
               </span>
             </p>
             <div className="hx-info-actions">
-              <a className="hx-btn hx-btn-primary" href={designHref(active.id)}>
+              <a
+                className="hx-btn hx-btn-primary"
+                href={designHref(active.id)}
+                data-cta="hero_design_this_door"
+                onClick={() => pickDoor(active, index)}
+              >
                 Design This Door
               </a>
-              <Link className="hx-btn hx-btn-ghost" href={plannerHref(active.id)}>
+              <Link
+                className="hx-btn hx-btn-ghost"
+                href={plannerHref(active.id)}
+                data-cta="hero_see_on_home"
+                onClick={() => pickDoor(active, index)}
+              >
                 See It on Your Home
               </Link>
             </div>

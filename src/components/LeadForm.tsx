@@ -1,12 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-
-declare global {
-  interface Window {
-    dataLayer?: Array<Record<string, unknown>>;
-  }
-}
+import { FormEvent, useRef, useState } from "react";
+import { appendTrackingFields, beginQuote, leadSubmitted, trackFormError } from "@/lib/analytics";
 import { isGreaterLasVegasZip, zip5 } from "@/lib/service-area";
 
 export function LeadForm({
@@ -23,6 +18,7 @@ export function LeadForm({
   );
   const [message, setMessage] = useState("");
   const [zipHint, setZipHint] = useState("");
+  const started = useRef(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,23 +27,21 @@ export function LeadForm({
     const form = new FormData(event.currentTarget);
     form.set("leadType", leadType);
     form.set("sourceUrl", window.location.href);
-    const query = new URLSearchParams(window.location.search);
-    ["utm_source", "utm_medium", "utm_campaign", "utm_content", "gclid"].forEach(
-      (key) => {
-        const value = query.get(key);
-        if (value) form.set(key, value);
-      },
-    );
+    appendTrackingFields(form);
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
       const result = (await response.json()) as { message?: string };
       if (!response.ok) throw new Error(result.message || "Unable to send");
       setStatus("success");
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({ event: "generate_lead", lead_type: leadType });
+      leadSubmitted({
+        leadType,
+        email: String(form.get("email") ?? ""),
+        phone: String(form.get("phone") ?? ""),
+      });
     } catch (error) {
       setStatus("error");
+      trackFormError(leadType, error instanceof Error ? error.message.slice(0, 100) : "unknown");
       setMessage(error instanceof Error ? error.message : "Please try again.");
     }
   }
@@ -67,7 +61,15 @@ export function LeadForm({
   }
 
   return (
-    <form className="quote-form" onSubmit={onSubmit}>
+    <form
+      className="quote-form"
+      onFocus={() => {
+        if (started.current) return;
+        started.current = true;
+        beginQuote(null, {}, leadType);
+      }}
+      onSubmit={onSubmit}
+    >
       <input className="honeypot" name="website" tabIndex={-1} autoComplete="off" />
       <div className="field-row">
         <label>

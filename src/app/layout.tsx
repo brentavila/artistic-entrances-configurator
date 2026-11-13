@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { GoogleTagManager } from "@/components/GoogleTagManager";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -23,6 +24,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <GoogleTagManager />
+        <AnalyticsProvider />
         <SiteHeader />
         {children}
         <SiteFooter />

@@ -33,16 +33,16 @@ export function SiteHeader() {
         </button>
         <div className="nav-links" id="primary-nav">
           {links.map((link) => (
-            <a href={link.href} key={link.href} onClick={() => setOpen(false)}>
+            <a data-cta={link.href === "/catalog" ? "request_catalog" : undefined} data-cta-location="header_nav" href={link.href} key={link.href} onClick={() => setOpen(false)}>
               {link.label}
             </a>
           ))}
         </div>
       </nav>
-      <a className="header-phone" href={`tel:${business.phoneTel}`}>
+      <a className="header-phone" data-cta-location="header" href={`tel:${business.phoneTel}`}>
         {business.phoneDisplay}
       </a>
-      <a className="header-cta" href="/design-your-door">
+      <a className="header-cta" data-cta="design_your_door" data-cta-location="header" href="/design-your-door">
         Design Your Door
       </a>
     </header>

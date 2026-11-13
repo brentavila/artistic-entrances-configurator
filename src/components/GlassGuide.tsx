@@ -46,7 +46,7 @@ export function GlassGuide() {
         <p className="tr-glass-note">
           Ordered from open view to most private as a general guide. The
           showroom confirms which glass can be built into the door you choose.{" "}
-          <a href="/design-your-door">Try each glass in the designer</a>.
+          <a data-cta="design_your_door" data-cta-location="glass_guide" href="/design-your-door">Try each glass in the designer</a>.
         </p>
       </section>
     </div>
