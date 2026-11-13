@@ -27,10 +27,11 @@ export default function DesignPage() {
         <p className="eyebrow">Door designer</p>
         <h1>Design Your Custom Iron Door</h1>
         <p>
-          Pick a door style, then record the glass, handle, finish, lock,
-          screen, sidelights, and jamb. The photo stays as it was taken. Save
-          the design on this browser, or copy the link, and send it with your
-          contact details. Greater Las Vegas requests can include a mockup.
+          Pick a door style, then choose the glass, handle, finish, lock,
+          screen, sidelights, and jamb. The preview illustrates your glass and
+          finish on the catalog photo of the door. The other choices are
+          recorded with your request. Save the design on this browser, or copy
+          the link, and send it with your contact details. Greater Las Vegas requests can include a mockup.
           Requests from outside that area go to a conversational follow-up.
         </p>
       </section>

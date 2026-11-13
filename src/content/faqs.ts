@@ -16,7 +16,7 @@ export const homeFaqs: Faq[] = [
   {
     question: "Can I choose the glass, handle, and finish?",
     answer:
-      "Yes. The designer records clear, frosted, rain, or Aquatex glass, plus the handle, finish, lock, screen, sidelights, and jamb. The door photo stays as it was taken. The team confirms those choices before anything is built.",
+      "Yes. The designer records clear, frosted, rain, or Aquatex glass, plus the handle, finish, lock, screen, sidelights, and jamb. The preview illustrates the glass and finish on the catalog photo of the door. The team confirms those choices before anything is built.",
   },
   {
     question: "Do you install iron doors in Las Vegas?",
@@ -28,7 +28,7 @@ export const designFaqs: Faq[] = [
   {
     question: "Does the preview show the finished door?",
     answer:
-      "The large photo is the door you picked, in the finish already on that image. Glass, handle, lock, screen, sidelights, and jamb are listed next to it and are not painted onto the photo. Choose As shown to keep that pictured finish, or pick another finish such as matte black. A combined mockup is prepared only after you submit your contact details, and only for projects in greater Las Vegas.",
+      "The large image is an illustration: your selected glass and finish drawn on the catalog photo of the door. Choose As shown to keep the finish pictured in the photo. Handle, lock, screen, sidelights, and jamb are recorded with your request but not drawn. A combined mockup is prepared only after you submit your contact details, and only for projects in greater Las Vegas.",
   },
   {
     question: "What glass types are available?",

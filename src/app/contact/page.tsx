@@ -1,6 +1,8 @@
 import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
 import { LeadForm } from "@/components/LeadForm";
+import { ShowroomMap } from "@/components/ShowroomMap";
+import { TrustBadges } from "@/components/TrustBadges";
 import { contactFaqs } from "@/content/faqs";
 import { business } from "@/lib/business";
 import { breadcrumbSchema, faqSchema, localBusinessSchema, pageMetadata } from "@/lib/seo";
@@ -45,9 +47,6 @@ export default function ContactPage() {
             <br />
             <a href={`mailto:${business.email}`}>{business.email}</a>
           </p>
-          <p>
-            <a href={business.mapUrl}>Open the showroom in Google Maps</a>
-          </p>
         </div>
         <LeadForm
           leadType="contact"
@@ -55,6 +54,8 @@ export default function ContactPage() {
           submitLabel="Send Message"
         />
       </section>
+      <ShowroomMap heading="Find the Showroom" />
+      <TrustBadges variant="grid" />
       <FaqSection
         heading="Contact Questions"
         intro="How to reach the Las Vegas showroom and what to have ready."

@@ -47,8 +47,8 @@ export default function AboutPage() {
           Most projects begin with a photo from the gallery. The designer records
           the glass type, handle, and finish so the person who calls you already
           knows what you selected. Clear, frosted, rain, and Aquatex glass are
-          the standard choices. Handles and finishes are shown beside the door
-          until product photos are added.
+          the standard choices. The preview illustrates the glass and finish on
+          the door photo, and handles are shown beside it.
         </p>
         <h2>Who the Team Works With</h2>
         <p>

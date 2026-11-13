@@ -1,6 +1,8 @@
 import { FaqSection } from "@/components/FaqSection";
 import { GoogleReviews } from "@/components/GoogleReviews";
 import { LeadTimeNote } from "@/components/LeadTimeNote";
+import { ShowroomMap } from "@/components/ShowroomMap";
+import { TrustBadges } from "@/components/TrustBadges";
 import { JsonLd } from "@/components/JsonLd";
 import { lasVegasFaqs } from "@/content/faqs";
 import { business, serviceCities } from "@/lib/business";
@@ -77,8 +79,10 @@ export default function LasVegasPage() {
         </a>
       </section>
 
+      <TrustBadges variant="grid" />
       <GoogleReviews heading="Reviews from the Las Vegas Showroom" />
       <LeadTimeNote />
+      <ShowroomMap />
       <FaqSection
         heading="Las Vegas Iron Door Questions"
         intro="Service area, showroom location, and what to expect on a local project."

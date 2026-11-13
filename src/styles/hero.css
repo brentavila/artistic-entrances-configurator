@@ -1,0 +1,881 @@
+/* Home hero: pinned door showcase. Prefix hx-. Scroll progress arrives as
+   --p, --intro, --reveal, --ui and --wipe (0 to 1) set on .hx by
+   HeroShowcase. Only transform, opacity and clip-path animate. */
+
+.hx {
+  --hx-top: 78px;
+  --hx-bg: #15120f;
+  --hx-cream: #f5f1e8;
+  --hx-gold: #c9a964;
+  --p: 0;
+  --intro: 0;
+  --reveal: 0;
+  --ui: 0;
+  --wipe: 0;
+  /* camera: zoom on the door, and the door's vertical offset (share of the
+     plate height) at progress 0 and in the interactive state */
+  --zoom: 1.24;
+  --dy0: 0;
+  --dy1: -0.085;
+  /* door width as a share of the plate (single by default) */
+  --fw: 0.1133;
+  --card-w: 148px;
+  --card-gap: 18px;
+  --ranks: 2;
+  background: var(--hx-bg);
+  color: var(--hx-cream);
+  position: relative;
+}
+
+.hx[data-layout="double"] {
+  --fw: 0.1786;
+}
+
+.hx-track {
+  height: calc(100svh - var(--hx-top) + 170vh);
+  position: relative;
+}
+
+.hx-stage {
+  height: calc(100svh - var(--hx-top));
+  min-height: 520px;
+  outline: none;
+  overflow: hidden;
+  position: sticky;
+  top: var(--hx-top);
+}
+
+.hx-stage:focus-visible {
+  outline: 2px solid var(--hx-gold);
+  outline-offset: -4px;
+}
+
+.hx-sr {
+  border: 0;
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+/* ---------------- scene ---------------- */
+
+.hx-view {
+  container-type: size;
+  inset: 0;
+  position: absolute;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.hx-view > * {
+  /* derived geometry, in the view's container units */
+  --scene-w: max(100cqw, 177.78cqh);
+  --scene-h: max(56.25cqw, 100cqh);
+  --cam: calc(var(--dy0) + (var(--dy1) - var(--dy0)) * var(--intro));
+  --scale: calc(1 + (var(--zoom) - 1) * var(--intro));
+  --door-half: calc(var(--scene-w) * var(--fw) * 0.5 * var(--scale));
+  --door-y: calc(var(--scene-h) * (0.063 + var(--cam)));
+}
+
+.hx-scene {
+  aspect-ratio: 16 / 9;
+  container-type: inline-size;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) translateY(calc(var(--cam) * 100%)) scale(var(--scale));
+  transform-origin: 49.8% 56.3%;
+  width: var(--scene-w);
+  will-change: transform;
+}
+
+.hx-plate {
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+  transition: opacity 700ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hx-plate[data-active="true"] {
+  opacity: 1;
+}
+
+.hx-plate-img {
+  display: block;
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.hx-word {
+  color: rgba(33, 27, 21, 0.86);
+  font-family: var(--font-display), serif;
+  font-size: 12.5cqw;
+  font-weight: 400;
+  left: 0;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  padding-left: 0.14em;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  text-align: center;
+  top: -0.5cqw;
+  transform: translateY(calc(var(--p) * -9cqw));
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+/* only once the house matte can sit in front of it */
+.hx-plate[data-matte="ready"] .hx-word {
+  opacity: 1;
+}
+
+.hx-matte {
+  display: block;
+  height: auto;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.hx-opening {
+  position: absolute;
+}
+
+.hx-doors {
+  background: #1c1814;
+  clip-path: inset(0 0 calc((1 - var(--reveal)) * 100%) 0);
+  inset: 0;
+  overflow: hidden;
+  position: absolute;
+}
+
+.hx-door {
+  display: block;
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.hx-door.is-in {
+  animation: hx-door-in 620ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.hx-door.is-out {
+  animation: hx-door-out 620ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+@keyframes hx-door-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--dir, 1) * 5%));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hx-door-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--dir, 1) * -5%));
+  }
+}
+
+/* soft shade under the porch roof, over the top of the door */
+.hx-porch {
+  background: linear-gradient(to bottom, rgba(32, 22, 12, 0.22), rgba(32, 22, 12, 0) 38%);
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.hx-wipe {
+  inset: 0;
+  opacity: var(--wipe);
+  pointer-events: none;
+  position: absolute;
+  transform: translateY(calc(var(--reveal) * 100%));
+}
+
+.hx-wipe span {
+  background: linear-gradient(90deg, transparent, #d9bc7c 14%, #f4e4b8 50%, #d9bc7c 86%, transparent);
+  box-shadow: 0 0 10px 1px rgba(226, 196, 130, 0.65);
+  height: 2px;
+  left: -8%;
+  position: absolute;
+  right: -8%;
+  top: -1px;
+}
+
+.hx-contact {
+  background: radial-gradient(ellipse at center, rgba(22, 13, 6, 0.5), rgba(22, 13, 6, 0) 70%);
+  bottom: -1.4%;
+  height: 2%;
+  left: -2%;
+  opacity: var(--reveal);
+  pointer-events: none;
+  position: absolute;
+  right: -2%;
+}
+
+.hx-vignette {
+  background: radial-gradient(ellipse 62% 74% at 50% 46%, rgba(12, 9, 6, 0) 52%, rgba(12, 9, 6, 0.5));
+  inset: 0;
+  opacity: calc(var(--ui) * 0.95);
+  pointer-events: none;
+  position: absolute;
+}
+
+/* ---------------- frosted cards ---------------- */
+
+.hx-cards {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+/* outer layer: the card's slot beside the door (transitions when the door
+   changes); inner layer: the scroll-linked slide in (no transition) */
+.hx-card {
+  --off: calc(
+    var(--door-half) + var(--card-gap) * 1.6 + var(--card-w) / 2 + (var(--rank) - 1) *
+      (var(--card-w) + var(--card-gap))
+  );
+  animation: hx-fade 420ms ease both;
+  left: 50%;
+  margin-left: calc(var(--card-w) / -2);
+  opacity: calc(1.35 - var(--rank) * 0.35);
+  pointer-events: auto;
+  position: absolute;
+  top: 50%;
+  transform: translate(calc(var(--side) * var(--off)), calc(-50% + var(--door-y)))
+    scale(calc(1.08 - var(--rank) * 0.08));
+  transition:
+    transform 560ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 400ms ease;
+  width: var(--card-w);
+}
+
+.hx-card-body {
+  opacity: var(--ui);
+  transform: translateX(calc(var(--side) * (1 - var(--ui)) * 22vw));
+}
+
+.hx-card-body {
+  backdrop-filter: blur(16px) saturate(1.15);
+  background: rgba(250, 246, 238, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(10, 7, 4, 0.28);
+  display: grid;
+  padding: 10px 10px 8px;
+}
+
+@keyframes hx-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.hx-card-pick {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 6px 4px 2px;
+}
+
+.hx-card-pick img {
+  display: block;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  height: 150px;
+  object-fit: contain;
+  width: auto;
+}
+
+.hx[data-layout="double"] .hx-card-pick img {
+  height: 120px;
+}
+
+.hx-card-name {
+  font-family: var(--font-display), serif;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.hx-card-link {
+  align-items: center;
+  color: rgba(245, 241, 232, 0.86);
+  display: flex;
+  font-size: 10px;
+  font-weight: 600;
+  justify-content: center;
+  letter-spacing: 0.16em;
+  min-height: 44px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.hx-card-link:hover,
+.hx-card-pick:hover .hx-card-name {
+  color: #f0dcae;
+}
+
+.hx-card-pick:focus-visible,
+.hx-card-link:focus-visible {
+  outline: 2px solid var(--hx-gold);
+  outline-offset: 2px;
+}
+
+/* ---------------- arrows and layout pill ---------------- */
+
+.hx-nav {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.hx-arrow {
+  --s: 1;
+  --edge: calc(112px + 2.2vw); /* stay clear of the layout pill */
+  --reach: calc(var(--door-half) + 60px + var(--ui) * (var(--ranks) * (var(--card-w) + var(--card-gap)) + 4px));
+  align-items: center;
+  backdrop-filter: blur(14px);
+  background: rgba(250, 246, 238, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 50%;
+  color: var(--hx-cream);
+  cursor: pointer;
+  display: flex;
+  height: 52px;
+  justify-content: center;
+  left: 50%;
+  margin: -26px 0 0 -26px;
+  pointer-events: auto;
+  position: absolute;
+  top: 50%;
+  transform: translate(calc(var(--s) * min(50cqw - var(--edge), var(--reach))), var(--door-y));
+  transition:
+    background 180ms,
+    color 180ms,
+    border-color 180ms;
+  width: 52px;
+}
+
+.hx-arrow[data-dir="prev"] {
+  --s: -1;
+}
+
+.hx-arrow:hover {
+  background: var(--hx-cream);
+  border-color: var(--hx-cream);
+  color: #1b1712;
+}
+
+.hx-arrow:focus-visible,
+.hx-pill button:focus-visible,
+.hx-btn:focus-visible,
+.hx-rail button:focus-visible {
+  outline: 2px solid var(--hx-gold);
+  outline-offset: 3px;
+}
+
+.hx-pill {
+  backdrop-filter: blur(16px) saturate(1.1);
+  background: rgba(22, 18, 14, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px;
+  position: absolute;
+  right: max(18px, 2.2vw);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.hx-pill button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(245, 241, 232, 0.82);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: 9px;
+  font-weight: 600;
+  gap: 3px;
+  justify-content: center;
+  letter-spacing: 0.14em;
+  min-height: 62px;
+  text-transform: uppercase;
+  transition:
+    background 200ms,
+    color 200ms;
+  width: 62px;
+}
+
+.hx-pill button:hover {
+  color: #fff;
+}
+
+.hx-pill button[aria-pressed="true"] {
+  background: var(--hx-cream);
+  color: #1b1712;
+}
+
+/* ---------------- copy ---------------- */
+
+.hx-copy {
+  bottom: max(28px, 5vh);
+  left: max(24px, 4vw);
+  opacity: calc(1 - var(--intro) * 1.7);
+  position: absolute;
+  transform: translateY(calc(var(--intro) * -36px));
+  width: min(450px, calc(50vw - 190px));
+}
+
+.hx-copy-panel {
+  backdrop-filter: blur(18px) saturate(1.1);
+  background: rgba(20, 16, 12, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  box-shadow: 0 24px 60px rgba(8, 6, 4, 0.3);
+  padding: clamp(24px, 2.6vw, 38px);
+}
+
+.hx-eyebrow {
+  color: #e2c88d;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+
+.hx h1 {
+  color: #fbf7ef;
+  font-family: var(--font-display), serif;
+  font-size: clamp(32px, 3.3vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.04;
+  margin: 0;
+}
+
+.hx-lede {
+  color: rgba(245, 241, 232, 0.84);
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 16px 0 22px;
+}
+
+.hx-actions,
+.hx-info-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hx-btn {
+  align-items: center;
+  border: 1px solid transparent;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  justify-content: center;
+  letter-spacing: 0.14em;
+  min-height: 46px;
+  padding: 0 20px;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition:
+    background 180ms,
+    color 180ms,
+    border-color 180ms;
+  white-space: nowrap;
+}
+
+.hx-btn-primary {
+  background: var(--hx-cream);
+  border-color: var(--hx-cream);
+  color: #1b1712;
+}
+
+.hx-btn-primary:hover {
+  background: #e7cf97;
+  border-color: #e7cf97;
+}
+
+.hx-btn-ghost {
+  border-color: rgba(245, 241, 232, 0.5);
+  color: var(--hx-cream);
+}
+
+.hx-btn-ghost:hover {
+  border-color: var(--hx-cream);
+  background: rgba(245, 241, 232, 0.12);
+}
+
+.hx-cue {
+  align-items: center;
+  bottom: 18px;
+  color: rgba(245, 241, 232, 0.85);
+  display: flex;
+  flex-direction: column;
+  font-size: 10px;
+  font-weight: 600;
+  gap: 10px;
+  left: 50%;
+  letter-spacing: 0.2em;
+  opacity: calc(1 - var(--p) * 14);
+  pointer-events: none;
+  position: absolute;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  text-transform: uppercase;
+  transform: translateX(-50%);
+}
+
+.hx-cue i {
+  background: rgba(245, 241, 232, 0.3);
+  display: block;
+  height: 34px;
+  overflow: hidden;
+  position: relative;
+  width: 1px;
+}
+
+.hx-cue i::after {
+  animation: hx-cue 2.4s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+  background: var(--hx-cream);
+  content: "";
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: translateY(-100%);
+  width: 1px;
+}
+
+@keyframes hx-cue {
+  0% {
+    transform: translateY(-100%);
+  }
+  60%,
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+/* ---------------- active door details ---------------- */
+
+.hx-base {
+  background: linear-gradient(to bottom, rgba(16, 13, 10, 0), rgba(16, 13, 10, 0.72));
+  bottom: 0;
+  height: 30%;
+  left: 0;
+  opacity: var(--ui);
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+.hx-info {
+  bottom: max(22px, 3.2vh);
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  left: 50%;
+  opacity: var(--ui);
+  position: absolute;
+  transform: translate(-50%, calc((1 - var(--ui)) * 26px));
+}
+
+.hx-info-line {
+  align-items: baseline;
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5);
+}
+
+.hx-info-name {
+  font-family: var(--font-display), serif;
+  font-size: 22px;
+}
+
+.hx-info-count {
+  color: rgba(245, 241, 232, 0.72);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.hx-caption {
+  bottom: 14px;
+  color: rgba(245, 241, 232, 0.66);
+  font-size: 11px;
+  left: max(24px, 4vw);
+  letter-spacing: 0.04em;
+  margin: 0;
+  opacity: var(--ui);
+  position: absolute;
+}
+
+.hx-rail {
+  display: none;
+}
+
+/* ---------------- sizes ---------------- */
+
+@media (min-width: 1600px) {
+  .hx {
+    --card-w: 164px;
+    --card-gap: 22px;
+  }
+
+  .hx-card-pick img {
+    height: 168px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .hx {
+    --ranks: 1;
+  }
+
+  .hx-card[data-rank="2"] {
+    display: none;
+  }
+}
+
+/* Compact: phones and portrait tablets. The door sits high, the copy and
+   the switcher sit below it, and the cards become a thumbnail rail. */
+@media (max-width: 899px) {
+  .hx {
+    --zoom: 1;
+    --dy0: -0.29;
+    --dy1: -0.19;
+  }
+
+  .hx-track {
+    height: calc(100svh - var(--hx-top) + 110vh);
+  }
+
+  .hx-cards {
+    display: none;
+  }
+
+  .hx-arrow {
+    --reach: calc(var(--door-half) + 38px);
+    --edge: 36px;
+    height: 46px;
+    margin: -23px 0 0 -23px;
+    width: 46px;
+  }
+
+  .hx-pill {
+    right: 12px;
+    top: 12px;
+    transform: none;
+  }
+
+  .hx-pill button {
+    min-height: 50px;
+    width: 52px;
+  }
+
+  .hx-copy {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+  }
+
+  .hx-copy-panel {
+    backdrop-filter: none;
+    background: linear-gradient(to bottom, rgba(21, 18, 15, 0), var(--hx-bg) 26px);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 26px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .hx h1 {
+    font-size: clamp(27px, 7.2vw, 40px);
+  }
+
+  .hx-eyebrow {
+    margin-bottom: 10px;
+  }
+
+  .hx-lede {
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin: 8px 0 14px;
+  }
+
+  .hx-actions .hx-btn {
+    flex: 1 1 0;
+    padding: 0 12px;
+  }
+
+  .hx-cue {
+    display: none;
+  }
+
+  .hx-base {
+    background: linear-gradient(to bottom, rgba(21, 18, 15, 0), var(--hx-bg) 48px);
+    height: 230px;
+    opacity: var(--intro); /* hides the plate's lower edge as the copy leaves */
+  }
+
+  .hx-rail {
+    bottom: 120px;
+    display: flex;
+    gap: 10px;
+    left: 0;
+    opacity: var(--ui);
+    overflow-x: auto;
+    padding: 4px calc(50% - 26px);
+    position: absolute;
+    right: 0;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    transform: translateY(calc((1 - var(--ui)) * 24px));
+  }
+
+  .hx-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hx-rail button {
+    align-items: center;
+    background: rgba(250, 246, 238, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    flex: none;
+    height: 80px;
+    justify-content: center;
+    min-width: 52px;
+    padding: 6px;
+    scroll-snap-align: center;
+  }
+
+  .hx-rail button[aria-current="true"] {
+    border-color: #e2c88d;
+    background: rgba(250, 246, 238, 0.2);
+  }
+
+  .hx-rail img {
+    display: block;
+    height: 66px;
+    width: auto;
+  }
+
+  .hx-info {
+    bottom: 32px;
+    gap: 10px;
+    width: min(calc(100% - 32px), 520px);
+  }
+
+  .hx-info-name {
+    font-size: 19px;
+  }
+
+  .hx-info-actions {
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .hx-info-actions .hx-btn {
+    flex: 1 1 0;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 0 8px;
+  }
+
+  .hx-caption {
+    bottom: 10px;
+    font-size: 10px;
+    left: 0;
+    right: 0;
+    text-align: center;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) {
+  .hx {
+    --dy0: -0.2;
+    --dy1: -0.15;
+  }
+
+  .hx-copy-panel {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .hx-lede {
+    max-width: 560px;
+  }
+}
+
+@media (max-width: 899px) and (max-height: 700px) {
+  .hx-lede {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hx-door.is-in,
+  .hx-door.is-out {
+    animation-name: hx-fade-in;
+  }
+
+  .hx-door.is-out {
+    animation-name: hx-fade-out;
+  }
+
+  .hx-card {
+    animation: none;
+    transition: none;
+  }
+}
+
+@keyframes hx-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes hx-fade-out {
+  to {
+    opacity: 0;
+  }
+}
