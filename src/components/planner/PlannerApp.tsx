@@ -31,6 +31,20 @@ import {
 import { PhotoAligner } from "@/components/planner/PhotoAligner";
 import { segmentDoor, warmSegmenter } from "@/lib/segment";
 import { CleanPlate, boxMaskUrl, requestCleanPlate } from "@/lib/clean-plate";
+import { TrackedDoorList } from "@/components/TrackedDoorList";
+import {
+  appendTrackingFields,
+  beginQuote,
+  leadSubmitted,
+  trackFormError,
+  trackOption,
+  trackStep,
+  track,
+  viewDoor,
+  type DoorLike,
+  type DoorOpts,
+} from "@/lib/analytics";
+import { recordInterest } from "@/lib/interest";
 
 const EntryViewer = dynamic(
   () => import("@/components/planner/EntryViewer").then((mod) => mod.EntryViewer),
@@ -58,15 +72,37 @@ const views: Array<{ id: PlannerView; label: string }> = [
   { id: "inside", label: "Inside" },
 ];
 
-function track(event: string, values: Record<string, unknown> = {}) {
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event, ...values });
+const PLANNER_DOOR_LIST = { id: "planner_door_grid", name: "Planner door grid" };
+const HOME_PREVIEW_LIST_OPTS = {
+  listId: "planner_home_preview",
+  listName: "On my home",
+  funnelStage: "preview",
+};
+// A door must stay on the customer's home this long before it counts as seen.
+const HOME_DWELL_MS = 3000;
+// Photo and preview events all belong to the "preview" funnel stage.
+const PREVIEW = { funnel_stage: "preview" } as const;
+
+function doorLike(door: {
+  id: string;
+  name: string;
+  configuration?: string;
+  layout?: string;
+}): DoorLike {
+  return { id: door.id, name: door.name, configuration: door.configuration, layout: door.layout };
 }
 
-declare global {
-  interface Window {
-    dataLayer?: Array<Record<string, unknown>>;
-  }
+function namedOption(list: Array<{ id: string; name: string }>, id: string) {
+  const found = optionById(list, id);
+  return found ? { id: found.id, name: found.name } : undefined;
+}
+
+function designOpts(design: { glassId: string; finishId: string; handleId?: string }): DoorOpts {
+  return {
+    glass: namedOption(catalog.glass, design.glassId),
+    finish: namedOption(catalog.finishes, design.finishId),
+    handle: design.handleId ? namedOption(catalog.handles, design.handleId) : undefined,
+  };
 }
 
 export function PlannerApp() {
@@ -140,8 +176,13 @@ export function PlannerApp() {
     });
   }, [doorQuery, layoutFilter]);
 
-  // A design carried over from the designer in the link counts once.
+  // The step the planner opens on, and a design carried over from the
+  // designer in the link, each count once.
+  const opened = useRef(false);
   useEffect(() => {
+    if (opened.current) return;
+    opened.current = true;
+    trackStep("planner", step, currentStepIndex + 1);
     if (requestedDoor && (requested.glassId || requested.finishId)) {
       track("planner_design_loaded", {
         door_id: startingDesign.doorId,
@@ -149,6 +190,7 @@ export function PlannerApp() {
         finish_id: startingDesign.finishId,
         source: "url",
       });
+      viewDoor(doorLike(requestedDoor), designOpts(startingDesign));
     }
     // Runs once for the link the planner opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -199,6 +241,7 @@ export function PlannerApp() {
       pickDoor(next.id);
     }
     track("planner_door_cycle", {
+      ...PREVIEW,
       door_id: next.id,
       from_door_id: door.id,
       method,
@@ -210,8 +253,32 @@ export function PlannerApp() {
   function chooseOption(type: "glass" | "finish", id: string) {
     if (type === "glass") setGlassId(id);
     else setFinishId(id);
-    track("planner_option_select", { option_type: type, option_id: id, door_id: door.id });
+    trackOption(type, id, doorLike(door));
   }
+
+  // A door counts as "shown on the customer's home" only after it has stayed on
+  // screen in the Walk step for a few seconds: the timer restarts on every
+  // door, glass, or finish change, waits out the reveal animation and the
+  // door image loading, and stops when the customer leaves the step. Each
+  // door + glass + finish counts once per page view.
+  const homeSeen = useRef(new Set<string>());
+  const quoteStarted = useRef(false);
+  useEffect(() => {
+    if (step !== "walk" || revealing || doorBusy) return;
+    const key = `${door.id}|${glass.id}|${finish.id}`;
+    if (homeSeen.current.has(key)) return;
+    const timer = window.setTimeout(() => {
+      homeSeen.current.add(key);
+      const opts: DoorOpts = {
+        glass: { id: glass.id, name: glass.name },
+        finish: { id: finish.id, name: finish.name },
+        ...HOME_PREVIEW_LIST_OPTS,
+      };
+      viewDoor(doorLike(door), opts);
+      recordInterest("preview", door, { glassId: glass.id, finishId: finish.id });
+    }, HOME_DWELL_MS);
+    return () => window.clearTimeout(timer);
+  }, [step, revealing, doorBusy, door, glass, finish]);
 
   function loadSavedDesign() {
     if (!savedDesign) return;
@@ -229,7 +296,8 @@ export function PlannerApp() {
       finish_id: kept.finishId,
       source: "saved",
     });
-    track("planner_start", { door_id: kept.doorId });
+    viewDoor(doorLike(next), designOpts(kept));
+    trackStep("planner", "opening", 2);
     setMessage("");
     setStep("opening");
     document.querySelector(".planner-page")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -256,7 +324,7 @@ export function PlannerApp() {
     const abort = new AbortController();
     const timer = window.setTimeout(async () => {
       const report = (result: string, refined = false) =>
-        track("planner_clean_plate", { door_id: door.id, result, refined });
+        track("planner_clean_plate", { ...PREVIEW, door_id: door.id, result, refined });
       try {
         const result = await requestCleanPlate(url, maskUrl, abort.signal);
         if (abort.signal.aborted) return;
@@ -297,7 +365,7 @@ export function PlannerApp() {
     const setStatus = front ? setOutlining : setInsideOutlining;
     const run = (counter.current += 1);
     const report = (result: string) =>
-      track("planner_outline", { door_id: door.id, photo, source, result });
+      track("planner_outline", { ...PREVIEW, door_id: door.id, photo, source, result });
     setStatus("working");
     try {
       const outline = await segmentDoor(url, point);
@@ -322,10 +390,7 @@ export function PlannerApp() {
   function go(next: Step) {
     setMessage("");
     setStep(next);
-    if (next === "opening" && step === "door") {
-      track("planner_start", { door_id: door.id });
-    }
-    if (next === "walk") track("planner_view", { door_id: door.id });
+    trackStep("planner", next, steps.findIndex((item) => item.id === next) + 1);
     document.querySelector(".planner-page")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -346,7 +411,7 @@ export function PlannerApp() {
       setOutlineUrl(null);
       cancelCleanPlate();
       setPlate(null);
-      track("planner_photo", { door_id: door.id });
+      track("planner_photo", { ...PREVIEW, door_id: door.id });
       // Most entry photos have the door near the middle, a little below center.
       void outlineDoor(preview, { x: 0.5, y: 0.55 }, "auto");
     } catch (error) {
@@ -370,7 +435,7 @@ export function PlannerApp() {
       setInsideUrl(preview);
       setInsideMark(defaultDoorMark);
       setInsideOutlineUrl(null);
-      track("planner_photo", { door_id: door.id, photo: "inside" });
+      track("planner_photo", { ...PREVIEW, door_id: door.id, photo: "inside" });
       void outlineDoor(preview, { x: 0.5, y: 0.55 }, "auto", "inside");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not read that photo.");
@@ -394,7 +459,7 @@ export function PlannerApp() {
     }
     setMessage("");
     setOpenFile(file);
-    track("planner_photo", { door_id: door.id, photo: "door_open" });
+    track("planner_photo", { ...PREVIEW, door_id: door.id, photo: "door_open" });
   }
 
   function continueOpening() {
@@ -432,7 +497,7 @@ export function PlannerApp() {
     setRevealing(true);
     setViewNonce((value) => value + 1);
     setRevealNonce((value) => value + 1);
-    track("planner_reveal_replay", { door_id: door.id });
+    track("planner_reveal_replay", { ...PREVIEW, door_id: door.id });
   }
 
   function showView(next: PlannerView) {
@@ -474,21 +539,24 @@ export function PlannerApp() {
     if (insideFile) form.set("entryPhoto2", insideFile);
     if (openFile) form.set("entryPhoto3", openFile);
 
-    const query = new URLSearchParams(window.location.search);
-    ["utm_source", "utm_medium", "utm_campaign", "utm_content", "gclid"].forEach((key) => {
-      const value = query.get(key);
-      if (value) form.set(key, value);
-    });
+    // Campaign, click ids, GA ids, and the doors previewed on the home.
+    appendTrackingFields(form);
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
       const result = (await response.json()) as { message?: string };
       if (!response.ok) throw new Error(result.message || "Unable to send quote");
       setStatus("success");
-      track("planner_complete", { door_id: door.id });
-      track("generate_lead", { door_id: door.id, lead_type: "entry_planner" });
+      leadSubmitted({
+        leadType: "entry_planner",
+        door: doorLike(door),
+        opts: designOpts({ glassId: glass.id, finishId: finish.id, handleId: handle.id }),
+        email: String(form.get("email") ?? ""),
+        phone: String(form.get("phone") ?? ""),
+      });
     } catch (error) {
       setStatus("error");
+      trackFormError("planner_quote", error instanceof Error ? error.message.slice(0, 100) : "unknown");
       setMessage(
         error instanceof Error
           ? error.message
@@ -560,7 +628,7 @@ export function PlannerApp() {
                   onClick={() => {
                     setLayoutFilter(id);
                     setVisibleDoors(24);
-                    track("planner_layout_filter", { layout: id });
+                    trackOption("layout", id);
                   }}
                   type="button"
                 >
@@ -583,10 +651,16 @@ export function PlannerApp() {
             <p className="door-results-copy">
               Showing {Math.min(visibleDoors, filteredDoors.length)} of {filteredDoors.length} doors
             </p>
-            <div className="door-grid">
+            <TrackedDoorList
+              className="door-grid"
+              doors={filteredDoors.slice(0, visibleDoors).map(doorLike)}
+              listId={PLANNER_DOOR_LIST.id}
+              listName={PLANNER_DOOR_LIST.name}
+            >
               {filteredDoors.slice(0, visibleDoors).map((item) => (
                 <button
                   aria-pressed={item.id === door.id}
+                  data-door-id={item.id}
                   className={item.id === door.id ? "door-card selected" : "door-card"}
                   key={item.id}
                   onClick={() => pickDoor(item.id)}
@@ -599,7 +673,7 @@ export function PlannerApp() {
                   <small>{item.configuration}</small>
                 </button>
               ))}
-            </div>
+            </TrackedDoorList>
             {visibleDoors < filteredDoors.length && (
               <button
                 className="secondary-action"
@@ -747,7 +821,7 @@ export function PlannerApp() {
                 onAdjustEnd={(next) => {
                   setOutlineUrl(null);
                   setOutlining("manual");
-                  track("planner_outline_adjust", { door_id: door.id });
+                  track("planner_outline_adjust", { ...PREVIEW, door_id: door.id });
                   void photoAspect(photoUrl).then((aspect) =>
                     startCleanPlate(photoUrl, boxMaskUrl(next, aspect), false),
                   );
@@ -1041,7 +1115,7 @@ export function PlannerApp() {
                     max={100}
                     min={0}
                     onChange={(event) => setCompare(Number(event.target.value) / 100)}
-                    onPointerUp={() => track("planner_compare", { door_id: door.id })}
+                    onPointerUp={() => track("planner_compare", { ...PREVIEW, door_id: door.id })}
                     type="range"
                     value={Math.round(compare * 100)}
                   />
@@ -1095,7 +1169,19 @@ export function PlannerApp() {
               <SummaryRow label="Jamb depth" value={formatInches(opening.jambDepth)} />
               <SummaryRow label="Handing" value={handingLabel(opening)} />
             </div>
-            <form className="quote-form" onSubmit={submitQuote}>
+            <form
+              className="quote-form"
+              onFocus={() => {
+                if (quoteStarted.current) return;
+                quoteStarted.current = true;
+                beginQuote(
+                  doorLike(door),
+                  designOpts({ glassId: glass.id, finishId: finish.id, handleId: handle.id }),
+                  "entry_planner",
+                );
+              }}
+              onSubmit={submitQuote}
+            >
               <input aria-hidden="true" className="honeypot" name="website" tabIndex={-1} autoComplete="off" />
               <div className="field-row">
                 <label>

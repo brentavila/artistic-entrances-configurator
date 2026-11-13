@@ -8,22 +8,41 @@ Every event also carries `page_type` (home, catalog, designer, planner, gallery,
 
 | Event | Fires when | File | Parameters | GA4 type | Key event? |
 |---|---|---|---|---|---|
-| `view_item_list` | A door grid first scrolls into view (once per mount). Lists: `featured_doors`, `door_gallery`, `designer_door_grid`, `project_gallery` (project photos, not doors) | `TrackedDoorList.tsx` (used by `FeaturedDoors`, `DoorGallery`, `ProjectGallery`, `DoorConfigurator`) | `item_list_id`, `item_list_name`, `funnel_stage=browse`, `items` (first 12) | Recommended | No |
-| `select_item` | A door card is clicked in a list, or a hero button takes the visitor to the designer or planner with that door | `TrackedDoorList.tsx`, `HeroShowcase.tsx`, `DoorConfigurator.tsx` (door pick) | `item_list_id`, `item_list_name`, `funnel_stage=browse`, `items` | Recommended | No |
-| `view_item` | The hero shows a door, the designer opens on a door, a door is picked in the designer, or glass/finish/handle changes (new variant) | `HeroShowcase.tsx`, `DoorConfigurator.tsx` | `funnel_stage=consider`, `items` | Recommended | No |
+| `view_item_list` | A door grid first scrolls into view (once per mount). Lists: `featured_doors`, `door_gallery`, `designer_door_grid`, `planner_door_grid`, `project_gallery` (project photos, not doors) | `TrackedDoorList.tsx` (used by `FeaturedDoors`, `DoorGallery`, `ProjectGallery`, `DoorConfigurator`, `PlannerApp`) | `item_list_id`, `item_list_name`, `funnel_stage=browse`, `items` (first 12) | Recommended | No |
+| `select_item` | A door card is clicked in a list (including the planner's step 1 grid), or a hero button takes the visitor to the designer or planner with that door | `TrackedDoorList.tsx`, `HeroShowcase.tsx`, `DoorConfigurator.tsx` (door pick) | `item_list_id`, `item_list_name`, `funnel_stage=browse`, `items` | Recommended | No |
+| `view_item` | The hero shows a door, the designer opens on a door, a door is picked in the designer, or glass/finish/handle changes (new variant). Planner: a design arrives from the designer link or the saved-design button (`consider`), or a door has stayed on the customer's home for 3 seconds (see "Door shown on the customer's home"; list `planner_home_preview`, `preview`) | `HeroShowcase.tsx`, `DoorConfigurator.tsx`, `PlannerApp.tsx` | `funnel_stage=consider` (`preview` for the home), `items` | Recommended | No |
 | `add_to_wishlist` | "Save This Door" in the designer | `DoorConfigurator.tsx` | `funnel_stage=consider`, `items` | Recommended | No |
 | `add_to_cart` | "Review My Design" (design finished, moving to review) | `DoorConfigurator.tsx` | `funnel_stage=design`, `items` | Recommended | Optional (strong intent signal) |
-| `begin_checkout` | First focus inside a quote or lead form | `DoorConfigurator.tsx`, `LeadForm.tsx` | `lead_type`, `funnel_stage=quote`, `items` (designer only) | Recommended | No |
-| `generate_lead` | A quote or lead form submits successfully | `DoorConfigurator.tsx`, `LeadForm.tsx` | `lead_type` (`custom_door`, `catalog`, `contact`), `currency=USD`, `value` (0 unless given), `funnel_stage=lead`, `items` (designer only) | Recommended | **Yes** |
-| `select_option` | An option is chosen: glass, finish, handle, lock, screen, sidelight, jamb, or the hero single/double toggle | `DoorConfigurator.tsx`, `HeroShowcase.tsx` | `option_type`, `option_id`, `item_id`, `item_name` | Custom | No |
-| `funnel_step` | A designer step opens (`start`, `details`, `review`, `quote`) | `DoorConfigurator.tsx` | `flow`, `step`, `step_index` | Custom | No |
+| `begin_checkout` | First focus inside a quote or lead form (planner: the step 5 form) | `DoorConfigurator.tsx`, `LeadForm.tsx`, `PlannerApp.tsx` | `lead_type` (`custom_door`, `entry_planner`, ...), `funnel_stage=quote`, `items` (designer and planner) | Recommended | No |
+| `generate_lead` | A quote or lead form submits successfully | `DoorConfigurator.tsx`, `LeadForm.tsx`, `PlannerApp.tsx` | `lead_type` (`custom_door`, `entry_planner`, `catalog`, `contact`), `currency=USD`, `value` (0 unless given), `funnel_stage=lead`, `items` (designer and planner) | Recommended | **Yes** |
+| `select_option` | An option is chosen: glass, finish, handle, lock, screen, sidelight, jamb, the hero single/double toggle, the planner's glass or finish on the home, or the planner's step 1 door-type filter (`option_type=layout`, option_id `all`, `single`, or `double`) | `DoorConfigurator.tsx`, `HeroShowcase.tsx`, `PlannerApp.tsx` | `option_type`, `option_id`, `item_id`, `item_name` | Custom | No |
+| `funnel_step` | A designer step opens (`flow=designer`: `start`, `details`, `review`, `quote`) or a planner step opens (`flow=planner`: `door`, `opening`, `photo`, `walk`, `quote`; a planner that opens on a carried-over design starts at `opening`). Going back a step fires it again | `DoorConfigurator.tsx`, `PlannerApp.tsx` | `flow`, `step`, `step_index` (planner 1 to 5) | Custom | No |
 | `cta_click` | Any element with a `data-cta` attribute is clicked | `AnalyticsProvider.tsx` | `cta_id`, `cta_location` (nearest `data-cta-location`, else page type), `destination` | Custom | No |
 | `contact_click` | A `tel:`, `mailto:`, `sms:`, or Google/Apple Maps link is clicked | `AnalyticsProvider.tsx` | `method` (phone, email, sms, directions), `cta_location` | Custom | Optional (phone is worth marking) |
-| `form_error` | A quote or lead form fails to send | `DoorConfigurator.tsx`, `LeadForm.tsx` | `form` (`designer_quote`, `catalog`, `contact`), `reason` | Custom | No |
+| `form_error` | A quote or lead form fails to send | `DoorConfigurator.tsx`, `LeadForm.tsx`, `PlannerApp.tsx` | `form` (`designer_quote`, `planner_quote`, `catalog`, `contact`), `reason` | Custom | No |
 | `hero_door_change` | A visitor changes the door in the home page hero | `HeroShowcase.tsx` | `door_id`, `layout`, `method` (button, card, rail, keyboard, wheel, swipe) | Custom | No |
 | `hero_layout_toggle` | The hero single/double toggle changes | `HeroShowcase.tsx` | `layout` | Custom | No |
 
-The planner (`src/components/planner/PlannerApp.tsx`) still uses its own local tracking and is not on this module yet.
+### Planner events
+
+All in `src/components/planner/PlannerApp.tsx`, sent through `track()`. Standard events (`view_item_list`, `select_item`, `view_item`, `select_option`, `funnel_step`, `begin_checkout`, `generate_lead`, `form_error`) are in the table above. The old names `planner_start`, `planner_view`, `planner_complete`, `planner_option_select`, and `planner_layout_filter` no longer exist: they became `funnel_step` (flow `planner`), `select_option`, and the `generate_lead` event.
+
+| Event | Fires when | Parameters | GA4 type |
+|---|---|---|---|
+| `planner_design_loaded` | A design is carried into the planner: from the designer link (`source=url`) or "View this door on my home" for the saved design (`source=saved`). A `view_item` for that door, glass, and finish is sent with it | `door_id`, `glass_id`, `finish_id`, `source` | Custom |
+| `planner_photo` | A photo is added: the front entry photo, `photo=inside`, or `photo=door_open` | `funnel_stage=preview`, `door_id`, `photo` (absent for the front photo) | Custom |
+| `planner_outline` | The door outline on a photo finished (`found`, `missed`, or `error`) | `funnel_stage=preview`, `door_id`, `photo`, `source` (auto, tap), `result` | Custom |
+| `planner_outline_adjust` | The customer adjusts the outline box by hand | `funnel_stage=preview`, `door_id` | Custom |
+| `planner_clean_plate` | The old door was painted out of the photo (or that failed) | `funnel_stage=preview`, `door_id`, `result`, `refined` | Custom |
+| `planner_reveal_replay` | "Replay the reveal" is pressed | `funnel_stage=preview`, `door_id` | Custom |
+| `planner_compare` | The before/after slider is released | `funnel_stage=preview`, `door_id` | Custom |
+| `planner_door_cycle` | The customer steps to another door with the arrows, thumbnails, or keyboard in the Walk step | `funnel_stage=preview`, `door_id` (new), `from_door_id`, `method` (arrow, thumbnail, keyboard), `index`, `layout` | Custom |
+
+The planner has no separate `planner_complete` event: the quote step's `generate_lead` with `lead_type=entry_planner` is the completion, so the funnel has one ending.
+
+### Door shown on the customer's home
+
+The strongest pre-lead interest signal in the planner. A door counts only when it has been on screen in the Walk step for **3 seconds**. The timer restarts whenever the door, glass, or finish changes, waits while the reveal animation is playing or the door image is still loading, and is cancelled when the customer leaves the Walk step. Quickly cycling past doors counts none of them. When it fires, once per door + glass + finish per page view, it sends `view_item` (list `planner_home_preview`, `funnel_stage=preview`) and records a `preview` interest (weight 8) in `ae-interest`, so the lead gets `interest-door-<n>` tags for the doors previewed on the home.
 
 ## GA4 admin checklist
 
@@ -45,7 +64,7 @@ Both lead forms append these to the `/api/quote` form data, and the API reads, c
 - **Attribution** (`src/lib/attribution.ts`, stored in `localStorage` key `ae-attribution`): `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`, `gclid`, `gbraid`, `wbraid`, `fbclid`, `msclkid`, `landing_page`, `referrer`, all taken from ONE touch (the last touch when it has a campaign parameter or an outside referrer, otherwise the first touch, so a `utm_source` from one visit is never paired with a click id from another); plus the first touch as `first_utm_source` ... `first_timestamp`. First touch is kept forever once set. Last touch is replaced when a visit arrives with any campaign parameter, or with a new external referrer.
 - **GA identifiers**: `ga_client_id` and `ga_session_id`, read from the `_ga` and `_ga_4CTB6N724J` cookies. Useful for joining a CRM lead to GA4 or BigQuery sessions.
 - **Door interest** (`src/lib/interest.ts`, stored in `localStorage` key `ae-interest`, capped at 40 doors): `interest_top_door_id`, `interest_top_door_name`, `interest_doors` (a readable line such as `Door 8 (single) ×7 viewed, designed, previewed; Door 21 (single) ×3 viewed`), `interest_door_ids` (up to 5, comma separated), `interest_glass`, `interest_finish`, `interest_layout`. Score weights: view 1, select 3, design 5, save 6, preview 8, quote 10. A door's score is weighted by age: full weight for 14 days after its last activity, then halved every further 14 days, so stale interest fades. Door views are only counted when the visitor chose the door (a `door` link parameter, a restored saved design, a pick in the designer, or a deliberate hero change), never for the designer's default first door.
-- **Visit context**: `page_path` (where the form was submitted), `device` (`mobile` under 768px, `tablet` under 1100px, else `desktop`), `visit_count` (browser sessions on this device, localStorage `ae-visits`). The planner should call `recordInterest("preview", door)` when it renders a door on the visitor's photo.
+- **Visit context**: `page_path` (where the form was submitted), `device` (`mobile` under 768px, `tablet` under 1100px, else `desktop`), `visit_count` (browser sessions on this device, localStorage `ae-visits`). The planner records a `preview` for each door that stays on the visitor's home for 3 seconds in the Walk step.
 
 ## Adding a new event
 
@@ -104,5 +123,15 @@ When `N8N_QUOTE_WEBHOOK_URL` is set, the site still computes `tags` and `summary
 - **Best sellers**: contacts tagged `quoted-door-<n>` counted per tag in GHL (Contacts > filter by tag), or GA4 > Explore with item name by `generate_lead` event count.
 - **Trending doors**: GA4 Explore, item name vs Items viewed / Item list clicks, comparing the last 7 days with the previous 28 days; doors whose 7-day rate per day is well above the 28-day rate are trending.
 - **Glass and finish popularity**: GA4 item reports broken down by `item_category2` (glass) and `item_category3` (finish), plus the `interest-glass-*` and `interest-finish-*` tag counts in GHL.
+- **Funnel definitions** are in the "Funnel definitions" section below.
 - **Funnel**: GA4 Explore > Funnel exploration using `funnel_stage` (browse, consider, design, quote, lead), or events `view_item_list` > `view_item` > `add_to_cart` > `begin_checkout` > `generate_lead`.
 - **Lead source, first vs last touch**: compare the `First touch` and `Last touch` lines (or the two custom fields) per lead; a lead whose first touch was Meta but last touch was Google Ads shows which channel starts and which closes. Use `GA client id` to join leads to GA4 BigQuery export sessions.
+
+## Funnel definitions
+
+Build both in GA4 Explore > Funnel exploration (open funnel, so a visitor can enter at any step). Use the `funnel_step` event with the `flow` and `step` custom dimensions registered, and finish on `generate_lead` filtered by `lead_type`.
+
+- **Designer** (`flow = designer`): `funnel_step` step `start` > step `details` > step `review` > step `quote` > `generate_lead` with `lead_type = custom_door`.
+- **Planner** (`flow = planner`): `funnel_step` step `door` > step `opening` > step `photo` > step `walk` > step `quote` > `generate_lead` with `lead_type = entry_planner`.
+
+For a deeper planner read, add `view_item` with item list `planner_home_preview` after `walk`: it separates visitors who only reached the Walk step from those who really looked at a door on their home.

@@ -13,9 +13,7 @@ import { interestFields, recordInterest } from "./interest";
 
 declare global {
   interface Window {
-    // Same shape the planner declares until it moves to this module; every
-    // push below goes through layer(), which treats it as a plain array.
-    dataLayer?: Array<Record<string, unknown>>;
+    dataLayer?: unknown[];
   }
 }
 
