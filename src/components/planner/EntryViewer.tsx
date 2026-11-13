@@ -305,16 +305,17 @@ function OpeningTrim({ opening }: { opening: Opening }) {
   const midZ = (opening.jambDepth - 0.4) / 2;
   return (
     <group>
-      <mesh position={[-opening.width / 2 + 0.7, opening.height / 2, -0.45]}>
-        <boxGeometry args={[1.4, opening.height, 1.1]} />
+      {/* The casing laps the door's edge, like a stop, so no light shows around the door. */}
+      <mesh position={[-opening.width / 2 + CASING_SIDE / 2, opening.height / 2, -0.45]}>
+        <boxGeometry args={[CASING_SIDE, opening.height, 1.1]} />
         <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
       </mesh>
-      <mesh position={[opening.width / 2 - 0.7, opening.height / 2, -0.45]}>
-        <boxGeometry args={[1.4, opening.height, 1.1]} />
+      <mesh position={[opening.width / 2 - CASING_SIDE / 2, opening.height / 2, -0.45]}>
+        <boxGeometry args={[CASING_SIDE, opening.height, 1.1]} />
         <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
       </mesh>
-      <mesh position={[0, opening.height - 0.7, -0.45]}>
-        <boxGeometry args={[opening.width, 1.4, 1.1]} />
+      <mesh position={[0, opening.height - CASING_HEAD / 2, -0.45]}>
+        <boxGeometry args={[opening.width, CASING_HEAD, 1.1]} />
         <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
       </mesh>
       {/* Jambs through the wall thickness, so an open door shows a frame, not a gap. */}
@@ -587,6 +588,8 @@ function alphaOutsideDoorUnit(shader: THREE.WebGLProgramParametersWithUniforms) 
 }
 
 const CASING = "#3c342c";
+const CASING_SIDE = FRAME.side + 0.15;
+const CASING_HEAD = FRAME.head + 0.15;
 
 const IRON_LAYERS = [0, 0.2, 0.4, 0.6, 0.8, 1];
 
