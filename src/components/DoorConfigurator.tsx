@@ -146,24 +146,47 @@ export function DoorConfigurator() {
     const hasDesignParams = ["glass", "handle", "finish", "lock", "screen", "sidelight", "jamb"].some(
       (key) => params.get(key),
     );
+    // Only a door the visitor actually chose counts as a view: one named in
+    // the link, or one restored from their saved design. The catalog's first
+    // door is just the default, so it would otherwise look like the favorite.
+    let viewed: Door = startingDoor;
+    const doorFromLink =
+      Boolean(requestedDoor) &&
+      (startingDoor.id === requestedDoor || startingDoor.slug === requestedDoor);
+    let chosen = doorFromLink;
+    let ids: Partial<SavedDesign> = {
+      glassId: params.get("glass") ?? undefined,
+      handleId: params.get("handle") ?? undefined,
+      finishId: params.get("finish") ?? undefined,
+    };
     if (!hasDesignParams) {
       const current = readCurrentDesign();
       // A door named in the link (for example from the home page) always
       // wins; the saved options still come back with it.
-      const doorFromLink =
-        startingDoor.id === requestedDoor || startingDoor.slug === requestedDoor;
-      if (current) applyDesign(doorFromLink ? { ...current, doorId: undefined } : current);
+      if (current) {
+        applyDesign(doorFromLink ? { ...current, doorId: undefined } : current);
+        ids = current;
+        const restoredDoor = doorFromLink
+          ? undefined
+          : catalog.doors.find((item) => item.id === current.doorId);
+        if (restoredDoor) {
+          viewed = restoredDoor;
+          chosen = true;
+        }
+      }
     }
     hydrated.current = true;
     trackStep("designer", "start", 0);
-    viewDoor(
-      doorLike(startingDoor),
-      designOpts(
-        optionById(catalog.glass, knownId(catalog.glass, params.get("glass")) ?? catalog.glass[0].id) ?? catalog.glass[0],
-        optionById(catalog.handles, knownId(catalog.handles, params.get("handle")) ?? catalog.handles[0].id) ?? catalog.handles[0],
-        optionById(catalog.finishes, knownId(catalog.finishes, params.get("finish")) ?? catalog.finishes[0].id) ?? catalog.finishes[0],
-      ),
-    );
+    if (chosen) {
+      viewDoor(
+        doorLike(viewed),
+        designOpts(
+          optionById(catalog.glass, knownId(catalog.glass, ids.glassId ?? null) ?? catalog.glass[0].id) ?? catalog.glass[0],
+          optionById(catalog.handles, knownId(catalog.handles, ids.handleId ?? null) ?? catalog.handles[0].id) ?? catalog.handles[0],
+          optionById(catalog.finishes, knownId(catalog.finishes, ids.finishId ?? null) ?? catalog.finishes[0].id) ?? catalog.finishes[0],
+        ),
+      );
+    }
     // Restore once. Later edits write the current design back to this browser.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

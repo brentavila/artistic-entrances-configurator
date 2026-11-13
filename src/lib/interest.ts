@@ -210,21 +210,38 @@ function topKey(counts: Record<string, number>) {
   return best;
 }
 
-function rankedDoors(profile: InterestProfile) {
+const DAY_MS = 24 * 60 * 60 * 1000;
+const FULL_WEIGHT_DAYS = 14;
+const HALF_LIFE_DAYS = 14;
+
+/** Full weight for 14 days, then halves every further 14 days. */
+export function decayFactor(lastAt: string, now: number = Date.now()) {
+  const then = Date.parse(lastAt);
+  if (!Number.isFinite(then)) return 1;
+  const days = (now - then) / DAY_MS;
+  if (days <= FULL_WEIGHT_DAYS) return 1;
+  return Math.pow(0.5, (days - FULL_WEIGHT_DAYS) / HALF_LIFE_DAYS);
+}
+
+export function decayedScore(d: DoorInterest, now: number = Date.now()) {
+  return doorScore(d) * decayFactor(d.lastAt, now);
+}
+
+function rankedDoors(profile: InterestProfile, now: number) {
   return Object.entries(profile.doors)
-    .map(([id, d]) => ({ id, d, score: doorScore(d) }))
+    .map(([id, d]) => ({ id, d, score: decayedScore(d, now) }))
     .sort((a, b) => b.score - a.score || b.d.lastAt.localeCompare(a.d.lastAt))
     .slice(0, 5);
 }
 
-export function summarize(profile: InterestProfile): InterestSummary {
+export function summarize(profile: InterestProfile, now: number = Date.now()): InterestSummary {
   const { single, double } = profile.layout;
   return {
-    topDoors: rankedDoors(profile).map(({ id, d, score }) => ({
+    topDoors: rankedDoors(profile, now).map(({ id, d, score }) => ({
       id,
       name: d.name,
       layout: d.layout,
-      score,
+      score: Math.round(score * 100) / 100,
       actions: VERBS.filter(([key]) => d[key] > 0).map(([, verb]) => verb),
     })),
     favoriteGlassId: topKey(profile.glass),

@@ -93,6 +93,31 @@ function readStore(): Attribution {
   }
 }
 
+const VISITS_KEY = "ae-visits";
+
+/** Counts browser sessions on this device. Called once per session. */
+function bumpVisitCount() {
+  try {
+    const count = Number.parseInt(window.localStorage.getItem(VISITS_KEY) ?? "", 10);
+    window.localStorage.setItem(VISITS_KEY, String((Number.isFinite(count) ? count : 0) + 1));
+  } catch {
+    /* storage blocked */
+  }
+}
+
+export function visitCount() {
+  try {
+    const count = Number.parseInt(window.localStorage.getItem(VISITS_KEY) ?? "", 10);
+    return Number.isFinite(count) && count > 0 ? String(count) : "";
+  } catch {
+    return "";
+  }
+}
+
+export function deviceClass(width: number): "mobile" | "tablet" | "desktop" {
+  return width < 768 ? "mobile" : width < 1100 ? "tablet" : "desktop";
+}
+
 export function captureAttribution() {
   try {
     if (typeof window === "undefined") return;
@@ -100,6 +125,7 @@ export function captureAttribution() {
     try {
       sessionSeen = window.sessionStorage.getItem(SESSION_KEY) === "1";
       window.sessionStorage.setItem(SESSION_KEY, "1");
+      if (!sessionSeen) bumpVisitCount();
     } catch {
       /* storage blocked */
     }
@@ -130,12 +156,22 @@ export function getAttribution(): Attribution {
 }
 
 /** Flat string map ready for a FormData. Empty values are left out. */
-export function attributionFieldsFor(attribution: Attribution): Record<string, string> {
+export function attributionFieldsFor(
+  attribution: Attribution,
+  host = "",
+): Record<string, string> {
   const { first, last } = attribution;
   const out: Record<string, string> = {};
-  const pick = (key: keyof Touch) => last?.[key] || first?.[key] || "";
-  for (const key of [...TOUCH_KEYS, "landing_page", "referrer"] as const) {
-    out[key] = pick(key);
+  // The un-prefixed fields all come from ONE touch, so a utm_source from one
+  // visit is never paired with a gclid from another: the last touch when it
+  // carries a campaign parameter or an outside referrer, otherwise the first.
+  const lastCounts =
+    last && (hasCampaign(last) || externalReferrer(last.referrer, host));
+  const source = lastCounts ? last : (first ?? last);
+  if (source) {
+    for (const key of [...TOUCH_KEYS, "landing_page", "referrer"] as const) {
+      out[key] = source[key];
+    }
   }
   if (first) {
     for (const key of [...TOUCH_KEYS, "referrer", "landing_page", "timestamp"] as const) {
@@ -147,7 +183,8 @@ export function attributionFieldsFor(attribution: Attribution): Record<string, s
 }
 
 export function attributionFields(): Record<string, string> {
-  return attributionFieldsFor(getAttribution());
+  const host = typeof window === "undefined" ? "" : window.location.host;
+  return attributionFieldsFor(getAttribution(), host);
 }
 
 function cookie(name: string) {

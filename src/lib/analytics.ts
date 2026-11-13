@@ -8,7 +8,7 @@
  *  2. A gtag-style push (`gtag('event', name, params)`), which the Google tag
  *     that GTM already loads delivers to GA4. No second gtag.js script.
  */
-import { attributionFields, gaIds } from "./attribution";
+import { attributionFields, deviceClass, gaIds, visitCount } from "./attribution";
 import { interestFields, recordInterest } from "./interest";
 
 declare global {
@@ -290,7 +290,14 @@ export function trackFormError(form: string, reason: string) {
  */
 export function appendTrackingFields(form: FormData) {
   try {
-    const fields = { ...attributionFields(), ...gaIds(), ...interestFields() };
+    const fields = {
+      ...attributionFields(),
+      ...gaIds(),
+      ...interestFields(),
+      page_path: window.location.pathname,
+      device: deviceClass(window.innerWidth),
+      visit_count: visitCount(),
+    };
     for (const [key, value] of Object.entries(fields)) {
       if (value && !form.has(key)) form.set(key, value);
     }

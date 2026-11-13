@@ -235,6 +235,9 @@ export function HeroShowcase() {
       leaveTimer.current = window.setTimeout(() => setLeaving(null), 700);
       setIndices((value) => ({ ...value, [layout]: next }));
       setAnnounce(`${list[next].name}, ${next + 1} of ${list.length}, ${layout} door`);
+      // Every method here is a deliberate choice: the scroll-driven reveal never
+      // changes doors, there is no auto-advance, and "wheel" only fires on a
+      // clearly horizontal trackpad gesture. So all of them count as views.
       viewDoor(heroDoor(list[next], layout), { listId: HERO_LIST.id, listName: HERO_LIST.name, index: next });
       track("hero_door_change", { door_id: list[next].id, layout, method });
     },
