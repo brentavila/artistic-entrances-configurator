@@ -1392,6 +1392,13 @@ footer > p {
   width: 100% !important;
 }
 
+.planner-canvas canvas.planner-freeze {
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
 .planner-hud {
   display: grid;
   gap: 16px;
