@@ -1,0 +1,24 @@
+{
+  "single": {
+    "src": "/hero/home-single.webp",
+    "width": 3840,
+    "height": 2160,
+    "opening": {
+      "x": 0.43229,
+      "y": 0.33333,
+      "w": 0.13073,
+      "h": 0.45278
+    }
+  },
+  "double": {
+    "src": "/hero/home-double.webp",
+    "width": 3840,
+    "height": 2160,
+    "opening": {
+      "x": 0.40026,
+      "y": 0.33333,
+      "w": 0.19609,
+      "h": 0.44907
+    }
+  }
+}

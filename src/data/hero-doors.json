@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "plateWidth": 3840,
+  "plateHeight": 2160,
+  "layouts": {
+    "single": {
+      "plate": {
+        "src": "/hero/plate-single-1920.webp",
+        "sources": [
+          {
+            "src": "/hero/plate-single-1280.webp",
+            "width": 1280
+          },
+          {
+            "src": "/hero/plate-single-1920.webp",
+            "width": 1920
+          },
+          {
+            "src": "/hero/plate-single-2880.webp",
+            "width": 2880
+          }
+        ]
+      },
+      "opening": {
+        "x": 0.441146,
+        "y": 0.348148,
+        "w": 0.113281,
+        "h": 0.431944
+      },
+      "matte": {
+        "band": 0.42,
+        "sources": [
+          {
+            "src": "/hero/matte-single-1920.webp",
+            "width": 1920
+          },
+          {
+            "src": "/hero/matte-single-2880.webp",
+            "width": 2880
+          }
+        ]
+      },
+      "doors": [
+        {
+          "id": "website-images-631",
+          "name": "Door 631",
+          "cutout": "/hero/doors/single/631.webp",
+          "thumb": "/hero/doors/single/631-thumb.webp"
+        },
+        {
+          "id": "website-images-632",
+          "name": "Door 632",
+          "cutout": "/hero/doors/single/632.webp",
+          "thumb": "/hero/doors/single/632-thumb.webp"
+        },
+        {
+          "id": "website-images-384",
+          "name": "Door 384",
+          "cutout": "/hero/doors/single/384.webp",
+          "thumb": "/hero/doors/single/384-thumb.webp"
+        },
+        {
+          "id": "website-images-8",
+          "name": "Door 8",
+          "cutout": "/hero/doors/single/8.webp",
+          "thumb": "/hero/doors/single/8-thumb.webp"
+        },
+        {
+          "id": "website-images-410",
+          "name": "Door 410",
+          "cutout": "/hero/doors/single/410.webp",
+          "thumb": "/hero/doors/single/410-thumb.webp"
+        },
+        {
+          "id": "website-images-645",
+          "name": "Door 645",
+          "cutout": "/hero/doors/single/645.webp",
+          "thumb": "/hero/doors/single/645-thumb.webp"
+        },
+        {
+          "id": "website-images-461",
+          "name": "Door 461",
+          "cutout": "/hero/doors/single/461.webp",
+          "thumb": "/hero/doors/single/461-thumb.webp"
+        },
+        {
+          "id": "website-images-99",
+          "name": "Door 99",
+          "cutout": "/hero/doors/single/99.webp",
+          "thumb": "/hero/doors/single/99-thumb.webp"
+        },
+        {
+          "id": "website-images-851",
+          "name": "Door 851",
+          "cutout": "/hero/doors/single/851.webp",
+          "thumb": "/hero/doors/single/851-thumb.webp"
+        },
+        {
+          "id": "website-images-78",
+          "name": "Door 78",
+          "cutout": "/hero/doors/single/78.webp",
+          "thumb": "/hero/doors/single/78-thumb.webp"
+        }
+      ]
+    },
+    "double": {
+      "plate": {
+        "src": "/hero/plate-double-1920.webp",
+        "sources": [
+          {
+            "src": "/hero/plate-double-1280.webp",
+            "width": 1280
+          },
+          {
+            "src": "/hero/plate-double-1920.webp",
+            "width": 1920
+          },
+          {
+            "src": "/hero/plate-double-2880.webp",
+            "width": 2880
+          }
+        ]
+      },
+      "opening": {
+        "x": 0.409115,
+        "y": 0.347685,
+        "w": 0.178646,
+        "h": 0.426389
+      },
+      "matte": {
+        "band": 0.42,
+        "sources": [
+          {
+            "src": "/hero/matte-double-1920.webp",
+            "width": 1920
+          },
+          {
+            "src": "/hero/matte-double-2880.webp",
+            "width": 2880
+          }
+        ]
+      },
+      "doors": [
+        {
+          "id": "website-images-52",
+          "name": "Door 52",
+          "cutout": "/hero/doors/double/52.webp",
+          "thumb": "/hero/doors/double/52-thumb.webp"
+        },
+        {
+          "id": "website-images-598",
+          "name": "Door 598",
+          "cutout": "/hero/doors/double/598.webp",
+          "thumb": "/hero/doors/double/598-thumb.webp"
+        },
+        {
+          "id": "website-images-101",
+          "name": "Door 101",
+          "cutout": "/hero/doors/double/101.webp",
+          "thumb": "/hero/doors/double/101-thumb.webp"
+        },
+        {
+          "id": "website-images-34",
+          "name": "Door 34",
+          "cutout": "/hero/doors/double/34.webp",
+          "thumb": "/hero/doors/double/34-thumb.webp"
+        },
+        {
+          "id": "website-images-559",
+          "name": "Door 559",
+          "cutout": "/hero/doors/double/559.webp",
+          "thumb": "/hero/doors/double/559-thumb.webp"
+        },
+        {
+          "id": "website-images-382",
+          "name": "Door 382",
+          "cutout": "/hero/doors/double/382.webp",
+          "thumb": "/hero/doors/double/382-thumb.webp"
+        },
+        {
+          "id": "website-images-346",
+          "name": "Door 346",
+          "cutout": "/hero/doors/double/346.webp",
+          "thumb": "/hero/doors/double/346-thumb.webp"
+        },
+        {
+          "id": "website-images-130",
+          "name": "Door 130",
+          "cutout": "/hero/doors/double/130.webp",
+          "thumb": "/hero/doors/double/130-thumb.webp"
+        },
+        {
+          "id": "website-images-580",
+          "name": "Door 580",
+          "cutout": "/hero/doors/double/580.webp",
+          "thumb": "/hero/doors/double/580-thumb.webp"
+        },
+        {
+          "id": "website-images-413",
+          "name": "Door 413",
+          "cutout": "/hero/doors/double/413.webp",
+          "thumb": "/hero/doors/double/413-thumb.webp"
+        }
+      ]
+    }
+  }
+}

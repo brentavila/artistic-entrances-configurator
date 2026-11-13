@@ -60,6 +60,7 @@ export function localBusinessSchema() {
     name: business.name,
     url: business.siteUrl,
     image: `${business.siteUrl}/media/doors/full/website-images-1.webp`,
+    hasMap: business.mapUrl,
     telephone: business.phoneTel,
     email: business.email,
     address: {

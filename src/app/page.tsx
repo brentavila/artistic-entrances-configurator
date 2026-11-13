@@ -1,12 +1,18 @@
-import Link from "next/link";
+import { ByTheNumbers } from "@/components/ByTheNumbers";
+import { DoorAnatomy } from "@/components/DoorAnatomy";
 import { FeaturedDoors } from "@/components/FeaturedDoors";
+import { GlassGuide } from "@/components/GlassGuide";
 import { GoogleReviews } from "@/components/GoogleReviews";
+import { HeroShowcase } from "@/components/HeroShowcase";
 import { LeadTimeNote } from "@/components/LeadTimeNote";
+import { ProcessInfographic } from "@/components/ProcessInfographic";
 import { ProjectGallery } from "@/components/ProjectGallery";
+import { ShowroomMap } from "@/components/ShowroomMap";
+import { TrustBadges } from "@/components/TrustBadges";
 import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
 import { homeFaqs } from "@/content/faqs";
-import { business, serviceCities } from "@/lib/business";
+import { serviceCities } from "@/lib/business";
 import { breadcrumbSchema, faqSchema, localBusinessSchema, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -23,39 +29,9 @@ export default function HomePage() {
       <JsonLd data={faqSchema(homeFaqs)} />
       <JsonLd data={breadcrumbSchema([{ name: "Home", path: "/" }])} />
 
-      <section className="hero">
-        <div className="hero-grain" />
-        <div className="hero-content">
-          <p className="eyebrow">Las Vegas custom iron doors</p>
-          <h1>Custom Iron Entry Doors in Las Vegas</h1>
-          <p>
-            Artistic Entrances designs iron entry doors for luxury homes in{" "}
-            {business.city}. Choose a style, then select clear, frosted, rain, or
-            Aquatex glass, a handle, and a finish. Greater Las Vegas homeowners
-            who send their contact details can have a mockup prepared. The
-            showroom confirms measurements and price before anything is built.
-          </p>
-          <div className="hero-actions">
-            <a className="hero-action" href="/design-your-door">
-              Design Your Door <span>→</span>
-            </a>
-            <Link className="hero-secondary" href="/planner">
-              See it on your home
-            </Link>
-          </div>
-          <div className="hero-proof">
-            <span>Hand-finished iron</span>
-            <span>Glass and hardware choices</span>
-            <span>Local showroom</span>
-          </div>
-        </div>
-        <figure className="hero-photo">
-          <img
-            alt="Arched matte-black double iron doors installed under a vine-covered Las Vegas entry"
-            src="/projects/arched-double-entry.webp"
-          />
-        </figure>
-      </section>
+      <HeroShowcase />
+
+      <TrustBadges />
 
       <section className="intro">
         <p className="eyebrow">Start with a real door</p>
@@ -82,6 +58,9 @@ export default function HomePage() {
         </a>
       </section>
 
+      <DoorAnatomy />
+      <GlassGuide />
+
       <section className="page-section">
         <div className="section-intro">
           <p className="eyebrow">Installed in Las Vegas</p>
@@ -97,34 +76,10 @@ export default function HomePage() {
         </a>
       </section>
 
+      <ByTheNumbers />
       <GoogleReviews />
 
-      <section className="trust-section">
-        <div>
-          <p className="eyebrow">How a project starts</p>
-          <h2>Three Steps Before a Door Is Made</h2>
-        </div>
-        <div className="trust-points">
-          <article>
-            <span>01</span>
-            <h3>Choose the style</h3>
-            <p>Search the gallery or request the catalog and note the door number.</p>
-          </article>
-          <article>
-            <span>02</span>
-            <h3>Select glass and hardware</h3>
-            <p>Clear, frosted, rain, and Aquatex glass sit next to the handle and finish.</p>
-          </article>
-          <article>
-            <span>03</span>
-            <h3>Send the request</h3>
-            <p>
-              Your selections go to the Las Vegas team at {business.phoneDisplay}.
-              Greater Las Vegas projects can include a mockup.
-            </p>
-          </article>
-        </div>
-      </section>
+      <ProcessInfographic />
 
       <section className="offer-band">
         <p className="eyebrow">Published purchase offer</p>
@@ -159,6 +114,7 @@ export default function HomePage() {
       </section>
 
       <LeadTimeNote />
+      <ShowroomMap />
       <FaqSection
         heading="Custom Iron Door Questions"
         intro="Straight answers for homeowners comparing iron entry doors in Las Vegas."
