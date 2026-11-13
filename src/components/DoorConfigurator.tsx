@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { DoorPreview } from "@/components/DoorPreview";
 import { catalog, optionById } from "@/lib/catalog";
 import {
   choiceById,
@@ -134,7 +135,11 @@ export function DoorConfigurator() {
     );
     if (!hasDesignParams) {
       const current = readCurrentDesign();
-      if (current) applyDesign(current);
+      // A door named in the link (for example from the home page) always
+      // wins; the saved options still come back with it.
+      const doorFromLink =
+        startingDoor.id === requestedDoor || startingDoor.slug === requestedDoor;
+      if (current) applyDesign(doorFromLink ? { ...current, doorId: undefined } : current);
     }
     hydrated.current = true;
     // Restore once. Later edits write the current design back to this browser.
@@ -323,13 +328,11 @@ export function DoorConfigurator() {
       <div className="configurator-grid">
         <aside className="preview-panel">
           <div className="preview-image">
-            <Image
-              alt={door.alt}
-              fill
-              priority
+            <DoorPreview
+              door={door}
+              finish={finish}
+              glass={glass}
               sizes="(max-width: 900px) 100vw, 45vw"
-              src={door.imageUrl}
-              unoptimized
             />
             <div className="preview-label">
               <p>{door.style}</p>
@@ -351,10 +354,11 @@ export function DoorConfigurator() {
             </span>
           </div>
           <p className="preview-disclaimer">
-            The photo is the door you selected, in the finish shown on that
-            image. Glass, handle, lock, screen, sidelights, and jamb are listed
-            beside it. Hand-forged iron can vary slightly from the photo. A
-            custom order follows the drawing you approve.
+            The image is an illustration: your selected glass and finish drawn
+            on the catalog photo of this door. Handle, lock, screen,
+            sidelights, and jamb are recorded with your request but not drawn.
+            Hand-forged iron varies from piece to piece, and a custom order
+            follows the drawing you approve.
           </p>
           <Link
             className="preview-planner-link"
