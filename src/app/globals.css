@@ -460,6 +460,7 @@ textarea:focus-visible {
 }
 
 .preview-planner-link {
+  padding: 14px 0;
   color: var(--ink);
   display: inline-block;
   font-size: 11px;
@@ -536,6 +537,11 @@ textarea:focus-visible {
   padding: 0 24px;
   text-transform: uppercase;
   width: 100%;
+}
+
+a.secondary-action {
+  align-items: center;
+  text-decoration: none;
 }
 
 .secondary-action:hover {
@@ -1910,5 +1916,19 @@ footer > p {
   .about-hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+.planner-design-card .primary-action {
+  min-height: 48px;
+}
+
+.planner-design-card strong {
+  font-size: 20px;
+}
+
+@media (max-width: 640px) {
+  .planner-design-card .primary-action {
+    grid-column: 1 / -1;
   }
 }

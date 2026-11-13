@@ -73,6 +73,10 @@ export function EntryViewer({
   plateUrl?: string | null;
   /** Box around what was painted out, as fractions of the photo. */
   removed?: DoorMark | null;
+  /** The glass the customer chose. Not drawn yet. */
+  glass?: { id: string; name: string };
+  /** The finish the customer chose. Not drawn yet. */
+  finish?: { id: string; name: string; hex: string; textureUrl: string | null };
 }) {
   const photo = usePreviewTexture(photoUrl);
   const plate = usePreviewTexture(plateUrl ?? null);

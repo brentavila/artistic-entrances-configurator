@@ -189,12 +189,16 @@ export function formatInches(value: number) {
   return `${rounded} in`;
 }
 
-export function plannerSummary(doorName: string, opening: Opening) {
+export function plannerSummary(
+  doorName: string,
+  opening: Opening,
+  design: { glass: string; handle: string; finish: string },
+) {
   return [
     `${doorName} preview in a rough opening ${formatInches(opening.width)} wide by ${formatInches(opening.height)} high.`,
     `Jamb depth ${formatInches(opening.jambDepth)}.`,
     `${handingLabel(opening)}.`,
-    "Glass, handle, and finish were not selected in the 3D planner.",
+    `Glass: ${design.glass}. Handle: ${design.handle}. Finish: ${design.finish}.`,
   ].join(" ");
 }
 

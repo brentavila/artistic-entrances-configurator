@@ -2,9 +2,16 @@
 
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import { catalog, optionById } from "@/lib/catalog";
+import {
+  currentDesignKey,
+  designFromParams,
+  findDoor,
+  parseDesign,
+  resolveDesign,
+} from "@/lib/design";
 import {
   DoorMark,
   Opening,
@@ -32,6 +39,7 @@ const EntryViewer = dynamic(
   },
 );
 
+type DoorLayout = "all" | "single" | "double";
 type Outlining = "idle" | "working" | "found" | "ready" | "missed" | "snapped" | "manual";
 type Step = "door" | "opening" | "photo" | "walk" | "quote";
 
@@ -62,11 +70,20 @@ declare global {
 
 export function PlannerApp() {
   const params = useSearchParams();
-  const requestedId = params.get("door");
-  const requestedDoor = catalog.doors.find((item) => item.id === requestedId);
+  const requested = designFromParams(params);
+  const requestedDoor = findDoor(requested.doorId);
+  const startingDesign = resolveDesign(requestedDoor ?? catalog.doors[0], requested);
 
   const [step, setStep] = useState<Step>(requestedDoor ? "opening" : "door");
-  const [doorId, setDoorId] = useState(requestedDoor?.id ?? catalog.doors[0].id);
+  const [doorId, setDoorId] = useState(startingDesign.doorId);
+  const [glassId, setGlassId] = useState(startingDesign.glassId);
+  const [finishId, setFinishId] = useState(startingDesign.finishId);
+  const [handleId, setHandleId] = useState(startingDesign.handleId);
+  const [layoutFilter, setLayoutFilter] = useState<DoorLayout>("all");
+  // The browser's saved design is read through an external-store subscription,
+  // so the server render and the first client render both see "none".
+  const savedRaw = useSyncExternalStore(subscribeToDesign, readSavedRaw, () => null);
+  const savedDesign = useMemo(() => parseDesign(savedRaw), [savedRaw]);
   const [doorQuery, setDoorQuery] = useState("");
   const [visibleDoors, setVisibleDoors] = useState(24);
   const [draft, setDraft] = useState<OpeningDraft>(defaultOpeningDraft);
@@ -100,20 +117,66 @@ export function PlannerApp() {
     () => catalog.doors.find((item) => item.id === doorId) ?? catalog.doors[0],
     [doorId],
   );
-  const glass = optionById(catalog.glass, door.availableGlassIds[0]) ?? catalog.glass[0];
-  const handle = optionById(catalog.handles, door.availableHandleIds[0]) ?? catalog.handles[0];
-  const finish = optionById(catalog.finishes, door.availableFinishIds[0]) ?? catalog.finishes[0];
+  const glass = optionById(catalog.glass, glassId) ?? catalog.glass[0];
+  const handle = optionById(catalog.handles, handleId) ?? catalog.handles[0];
+  const finish = optionById(catalog.finishes, finishId) ?? catalog.finishes[0];
   const currentStepIndex = steps.findIndex((item) => item.id === step);
   const filteredDoors = useMemo(() => {
     const query = doorQuery.trim().toLowerCase();
-    if (!query) return catalog.doors;
-    return catalog.doors.filter((item) =>
-      [item.id, item.name, item.slug, item.style, item.configuration]
+    return catalog.doors.filter((item) => {
+      if (layoutFilter !== "all" && item.layout !== layoutFilter) return false;
+      if (!query) return true;
+      return [item.id, item.name, item.slug, item.style, item.configuration, item.layout]
         .join(" ")
         .toLowerCase()
-        .includes(query),
-    );
-  }, [doorQuery]);
+        .includes(query);
+    });
+  }, [doorQuery, layoutFilter]);
+
+  // A design carried over from the designer in the link counts once.
+  useEffect(() => {
+    if (requestedDoor && (requested.glassId || requested.finishId)) {
+      track("planner_design_loaded", {
+        door_id: startingDesign.doorId,
+        glass_id: startingDesign.glassId,
+        finish_id: startingDesign.finishId,
+        source: "url",
+      });
+    }
+    // Runs once for the link the planner opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function pickDoor(id: string) {
+    const next = findDoor(id);
+    if (!next) return;
+    const kept = resolveDesign(next, { glassId, finishId, handleId });
+    setDoorId(kept.doorId);
+    setGlassId(kept.glassId);
+    setFinishId(kept.finishId);
+    setHandleId(kept.handleId);
+  }
+
+  function loadSavedDesign() {
+    if (!savedDesign) return;
+    const next = findDoor(savedDesign.doorId);
+    if (!next) return;
+    const kept = resolveDesign(next, savedDesign);
+    setDoorId(kept.doorId);
+    setGlassId(kept.glassId);
+    setFinishId(kept.finishId);
+    setHandleId(kept.handleId);
+    track("planner_design_loaded", {
+      door_id: kept.doorId,
+      glass_id: kept.glassId,
+      finish_id: kept.finishId,
+      source: "saved",
+    });
+    track("planner_start", { door_id: kept.doorId });
+    setMessage("");
+    setStep("opening");
+    document.querySelector(".planner-page")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   // The outline model is a few megabytes. Fetch it while the customer is
   // still entering measurements so the photo step feels instant.
@@ -343,7 +406,11 @@ export function PlannerApp() {
     form.set("jambDepth", String(opening.jambDepth));
     form.set("hingeSide", opening.hingeSide);
     form.set("swing", opening.swing);
-    form.set("plannerSummary", plannerSummary(door.name, opening));
+    form.set("plannerSummary", plannerSummary(door.name, opening, {
+      glass: glass.name,
+      handle: handle.name,
+      finish: finish.name,
+    }));
     form.set("leadSource", "entry-planner");
     form.set("sourceUrl", window.location.href);
     form.set("entryPhoto", frontFile);
@@ -398,6 +465,52 @@ export function PlannerApp() {
               Pick the iron door you want to see in the entry. The preview uses
               this photo on a door sized to your opening.
             </p>
+            {savedDesign && (
+              <div className="planner-selected planner-design-card">
+                <span className="door-thumb">
+                  <Image
+                    alt=""
+                    fill
+                    sizes="88px"
+                    src={findDoor(savedDesign.doorId)?.thumbnailUrl ?? ""}
+                    unoptimized
+                  />
+                </span>
+                <div>
+                  <p>Your design</p>
+                  <strong>
+                    {findDoor(savedDesign.doorId)?.name} · {designName(catalog.glass, savedDesign.glassId)} glass ·{" "}
+                    {designName(catalog.finishes, savedDesign.finishId)} finish
+                  </strong>
+                </div>
+                <button className="primary-action" onClick={loadSavedDesign} type="button">
+                  View this door on my home
+                </button>
+              </div>
+            )}
+            <div className="layout-filter" role="group" aria-label="Door type">
+              {(
+                [
+                  ["all", "All doors"],
+                  ["single", "Single doors"],
+                  ["double", "Double doors"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  aria-pressed={layoutFilter === id}
+                  className={layoutFilter === id ? "selected" : ""}
+                  key={id}
+                  onClick={() => {
+                    setLayoutFilter(id);
+                    setVisibleDoors(24);
+                    track("planner_layout_filter", { layout: id });
+                  }}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <label className="door-search">
               Search doors
               <input
@@ -419,7 +532,7 @@ export function PlannerApp() {
                   aria-pressed={item.id === door.id}
                   className={item.id === door.id ? "door-card selected" : "door-card"}
                   key={item.id}
-                  onClick={() => setDoorId(item.id)}
+                  onClick={() => pickDoor(item.id)}
                   type="button"
                 >
                   <span className="door-thumb">
@@ -457,7 +570,12 @@ export function PlannerApp() {
               swings. These measurements size the preview. They are not a
               fabrication drawing.
             </p>
-            <SelectedDoor door={door} onChange={() => go("door")} />
+            <SelectedDoor
+              door={door}
+              finishName={finish.name}
+              glassName={glass.name}
+              onChange={() => go("door")}
+            />
             <div className="quote-form planner-fields">
               <div className="field-row">
                 <label>
@@ -699,6 +817,8 @@ export function PlannerApp() {
             </div>
             <EntryViewer
               doorImageUrl={door.imageUrl}
+              glass={glass}
+              finish={finish}
               compare={compare}
               interiorMark={insideMark}
               interiorPhotoUrl={insideUrl}
@@ -796,6 +916,9 @@ export function PlannerApp() {
             </p>
             <div className="summary-card">
               <SummaryRow label="Door" value={door.name} />
+              <SummaryRow label="Glass" value={glass.name} />
+              <SummaryRow label="Handle" value={handle.name} />
+              <SummaryRow label="Finish" value={finish.name} />
               <SummaryRow label="Opening" value={`${formatInches(opening.width)} × ${formatInches(opening.height)}`} />
               <SummaryRow label="Jamb depth" value={formatInches(opening.jambDepth)} />
               <SummaryRow label="Handing" value={handingLabel(opening)} />
@@ -906,11 +1029,32 @@ function photoAspect(url: string) {
   });
 }
 
+function subscribeToDesign(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
+
+function readSavedRaw() {
+  try {
+    return window.localStorage.getItem(currentDesignKey);
+  } catch {
+    return null;
+  }
+}
+
+function designName(options: ReadonlyArray<{ id: string; name: string }>, id: string) {
+  return options.find((option) => option.id === id)?.name ?? "";
+}
+
 function SelectedDoor({
   door,
+  glassName,
+  finishName,
   onChange,
 }: {
   door: (typeof catalog.doors)[number];
+  glassName: string;
+  finishName: string;
   onChange: () => void;
 }) {
   return (
@@ -921,6 +1065,7 @@ function SelectedDoor({
       <div>
         <p>{door.style}</p>
         <strong>{door.name}</strong>
+        <p>{glassName} glass · {finishName} finish</p>
       </div>
       <button className="text-action" onClick={onChange} type="button">
         Change door
