@@ -13,6 +13,8 @@ import {
   leadSubmitted,
   saveDesign as trackSaveDesign,
   selectDoor as trackSelectDoor,
+  formErrorReason,
+  readJsonResponse,
   trackFormError,
   trackOption,
   trackStep,
@@ -298,7 +300,8 @@ export function DoorConfigurator() {
       ...nextOpts,
       index: position >= 0 ? position : undefined,
     });
-    viewDoor(doorLike(nextDoor), nextOpts);
+    // select_item above already recorded the pick; no extra view on top.
+    viewDoor(doorLike(nextDoor), { ...nextOpts, interest: false });
   }
 
   function pickOption(
@@ -354,11 +357,10 @@ export function DoorConfigurator() {
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
-      const result = (await response.json()) as {
-        message?: string;
-        mockupEligible?: boolean;
-      };
-      if (!response.ok) throw new Error(result.message || "Unable to send quote");
+      const result = await readJsonResponse<{ message?: string; mockupEligible?: boolean }>(
+        response,
+        "Unable to send quote",
+      );
 
       setMockupEligible(Boolean(result.mockupEligible));
       setStatus("success");
@@ -371,7 +373,7 @@ export function DoorConfigurator() {
       });
     } catch (error) {
       setStatus("error");
-      trackFormError("designer_quote", error instanceof Error ? error.message.slice(0, 100) : "unknown");
+      trackFormError("designer_quote", formErrorReason(error));
       setMessage(
         error instanceof Error
           ? error.message

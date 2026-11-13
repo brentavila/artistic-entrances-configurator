@@ -1,7 +1,14 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
-import { appendTrackingFields, beginQuote, leadSubmitted, trackFormError } from "@/lib/analytics";
+import {
+  appendTrackingFields,
+  beginQuote,
+  formErrorReason,
+  leadSubmitted,
+  readJsonResponse,
+  trackFormError,
+} from "@/lib/analytics";
 import { isGreaterLasVegasZip, zip5 } from "@/lib/service-area";
 
 export function LeadForm({
@@ -31,8 +38,7 @@ export function LeadForm({
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
-      const result = (await response.json()) as { message?: string };
-      if (!response.ok) throw new Error(result.message || "Unable to send");
+      await readJsonResponse(response, "Unable to send");
       setStatus("success");
       leadSubmitted({
         leadType,
@@ -41,7 +47,7 @@ export function LeadForm({
       });
     } catch (error) {
       setStatus("error");
-      trackFormError(leadType, error instanceof Error ? error.message.slice(0, 100) : "unknown");
+      trackFormError(leadType, formErrorReason(error));
       setMessage(error instanceof Error ? error.message : "Please try again.");
     }
   }

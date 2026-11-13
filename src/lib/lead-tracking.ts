@@ -25,7 +25,10 @@ export type TouchInfo = {
 export type LeadTracking = {
   lastTouch: TouchInfo;
   firstTouch: TouchInfo;
+  /** Click ids of the last touch (the one the utm fields come from). */
   clickIds: Record<ClickIdKey, string>;
+  /** Click ids of the first touch. */
+  firstClickIds: Record<ClickIdKey, string>;
   gaClientId: string;
   gaSessionId: string;
   /** Catalog door ids, most interesting first (max 5). */
@@ -84,7 +87,7 @@ function cleanReferrer(value: unknown) {
   }
 }
 
-function touch(get: (key: string) => string, prefix: string): TouchInfo {
+function touch(get: (key: string) => string, prefix: string, dateKey: string): TouchInfo {
   return {
     source: cleanText(get(`${prefix}utm_source`)),
     medium: cleanText(get(`${prefix}utm_medium`)),
@@ -93,7 +96,7 @@ function touch(get: (key: string) => string, prefix: string): TouchInfo {
     term: cleanText(get(`${prefix}utm_term`)),
     landingPage: cleanPath(get(`${prefix}landing_page`)),
     referrer: cleanReferrer(get(`${prefix}referrer`)),
-    date: cleanDate(get(`${prefix}timestamp`)),
+    date: cleanDate(get(dateKey)),
   };
 }
 
@@ -122,7 +125,11 @@ export function parseTracking(get: (key: string) => unknown): LeadTracking {
     return typeof value === "string" ? value : "";
   };
   const clickIds = {} as LeadTracking["clickIds"];
-  for (const key of CLICK_ID_KEYS) clickIds[key] = cleanToken(text(key));
+  const firstClickIds = {} as LeadTracking["clickIds"];
+  for (const key of CLICK_ID_KEYS) {
+    clickIds[key] = cleanToken(text(key));
+    firstClickIds[key] = cleanToken(text(`first_${key}`));
+  }
 
   const topId = cleanText(text("interest_top_door_id"), 100);
   const doorIds = idList(cleanText(text("interest_door_ids"), MAX_DOORS_TEXT));
@@ -134,9 +141,10 @@ export function parseTracking(get: (key: string) => unknown): LeadTracking {
   const topDoorId = doorsById.has(topId) ? topId : (doorIds[0] ?? "");
 
   return {
-    lastTouch: touch(text, ""),
-    firstTouch: touch(text, "first_"),
+    lastTouch: touch(text, "", "touch_timestamp"),
+    firstTouch: touch(text, "first_", "first_timestamp"),
     clickIds,
+    firstClickIds,
     gaClientId: cleanText(text("ga_client_id"), 60).replace(/[^0-9.]/g, ""),
     gaSessionId: cleanText(text("ga_session_id"), 30).replace(/[^0-9]/g, ""),
     interestDoorIds: doorIds.length || !topDoorId ? doorIds : [topDoorId],
@@ -171,8 +179,13 @@ export function doorTagNumber(doorId: string) {
   return tagSlug(match ? match[0] : doorId);
 }
 
-function hasClickId(t: LeadTracking, ...keys: ClickIdKey[]) {
-  return keys.some((key) => Boolean(t.clickIds[key]));
+/** The last touch's click ids, or the first touch's when the last has none. */
+export function sourceClickIds(t: LeadTracking): Record<ClickIdKey, string> {
+  return CLICK_ID_KEYS.some((key) => t.clickIds[key]) ? t.clickIds : t.firstClickIds;
+}
+
+function hasClickId(ids: Record<ClickIdKey, string>, ...keys: ClickIdKey[]) {
+  return keys.some((key) => Boolean(ids[key]));
 }
 
 /** At most 1 + 3 + 1 + 1 + 1 + 1 = 8 tags, whatever the browser sends. */
@@ -187,9 +200,10 @@ export function interestTags(tracking: LeadTracking, quotedDoorId: string): stri
   if (tracking.interestLayout) tags.push(`interest-${tracking.interestLayout}-door`);
   if (tracking.interestGlassId) tags.push(`interest-glass-${tagSlug(tracking.interestGlassId)}`);
   if (tracking.interestFinishId) tags.push(`interest-finish-${tagSlug(tracking.interestFinishId)}`);
-  if (hasClickId(tracking, "gclid", "gbraid", "wbraid")) tags.push("source-google-ads");
-  else if (hasClickId(tracking, "fbclid")) tags.push("source-meta-ads");
-  else if (hasClickId(tracking, "msclkid")) tags.push("source-microsoft-ads");
+  const ids = sourceClickIds(tracking);
+  if (hasClickId(ids, "gclid", "gbraid", "wbraid")) tags.push("source-google-ads");
+  else if (hasClickId(ids, "fbclid")) tags.push("source-meta-ads");
+  else if (hasClickId(ids, "msclkid")) tags.push("source-microsoft-ads");
   return [...new Set(tags)];
 }
 
@@ -220,10 +234,20 @@ export function finishName(id: string) {
   return finishById.get(id) ?? "";
 }
 
-export function clickIdLine(t: LeadTracking) {
-  return CLICK_ID_KEYS.filter((key) => t.clickIds[key])
-    .map((key) => `${key} ${t.clickIds[key]}`)
+function idLine(ids: Record<ClickIdKey, string>) {
+  return CLICK_ID_KEYS.filter((key) => ids[key])
+    .map((key) => `${key} ${ids[key]}`)
     .join(", ");
+}
+
+export function clickIdLine(t: LeadTracking) {
+  return idLine(t.clickIds);
+}
+
+/** First-touch click ids, only when they exist and differ from the last touch's. */
+export function firstClickIdLine(t: LeadTracking) {
+  const line = idLine(t.firstClickIds);
+  return line && line !== idLine(t.clickIds) ? line : "";
 }
 
 /** The cleaned values under stable names, for the n8n webhook form. */
@@ -244,6 +268,7 @@ export function trackingFormFields(t: LeadTracking): Record<string, string> {
     first_landing_page: t.firstTouch.landingPage,
     first_referrer: t.firstTouch.referrer,
     first_timestamp: t.firstTouch.date,
+    touch_timestamp: t.lastTouch.date,
     ga_client_id: t.gaClientId,
     ga_session_id: t.gaSessionId,
     interest_door_ids: t.interestDoorIds.join(","),
@@ -260,6 +285,9 @@ export function trackingFormFields(t: LeadTracking): Record<string, string> {
     first_touch: touchLabel(t.firstTouch),
     last_touch: touchLabel(t.lastTouch),
   };
-  for (const key of CLICK_ID_KEYS) out[key] = t.clickIds[key];
+  for (const key of CLICK_ID_KEYS) {
+    out[key] = t.clickIds[key];
+    out[`first_${key}`] = t.firstClickIds[key];
+  }
   return out;
 }

@@ -36,6 +36,8 @@ import {
   appendTrackingFields,
   beginQuote,
   leadSubmitted,
+  formErrorReason,
+  readJsonResponse,
   trackFormError,
   trackOption,
   trackStep,
@@ -273,6 +275,8 @@ export function PlannerApp() {
         glass: { id: glass.id, name: glass.name },
         finish: { id: finish.id, name: finish.name },
         ...HOME_PREVIEW_LIST_OPTS,
+        // The preview below is this moment's interest; do not add a view on top.
+        interest: false,
       };
       viewDoor(doorLike(door), opts);
       recordInterest("preview", door, { glassId: glass.id, finishId: finish.id });
@@ -544,8 +548,7 @@ export function PlannerApp() {
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
-      const result = (await response.json()) as { message?: string };
-      if (!response.ok) throw new Error(result.message || "Unable to send quote");
+      await readJsonResponse(response, "Unable to send quote");
       setStatus("success");
       leadSubmitted({
         leadType: "entry_planner",
@@ -556,7 +559,7 @@ export function PlannerApp() {
       });
     } catch (error) {
       setStatus("error");
-      trackFormError("planner_quote", error instanceof Error ? error.message.slice(0, 100) : "unknown");
+      trackFormError("planner_quote", formErrorReason(error));
       setMessage(
         error instanceof Error
           ? error.message

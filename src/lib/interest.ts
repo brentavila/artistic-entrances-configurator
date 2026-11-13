@@ -265,7 +265,6 @@ export function interestFieldsFor(profile: InterestProfile): Record<string, stri
   const top = summary.topDoors[0];
   if (!top) return out;
   out.interest_top_door_id = top.id;
-  out.interest_top_door_name = top.name;
   out.interest_doors = summary.topDoors
     .map((d) => {
       const layout = d.layout ? ` (${d.layout})` : "";

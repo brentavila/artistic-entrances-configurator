@@ -117,6 +117,8 @@ export type DoorOpts = {
   listName?: string;
   index?: number;
   funnelStage?: string;
+  /** Set to false when the caller records its own interest action for the same moment. */
+  interest?: boolean;
   /** Extra custom parameters for this event. */
   params?: Params;
 };
@@ -194,7 +196,7 @@ export function selectDoor(door: DoorLike, list?: DoorList, opts: DoorOpts = {})
 
 export function viewDoor(door: DoorLike, opts: DoorOpts = {}) {
   track("view_item", { ...stage(opts, "consider"), items: [doorItem(door, opts)] });
-  recordInterest("view", door, interestOpts(opts));
+  if (opts.interest !== false) recordInterest("view", door, interestOpts(opts));
 }
 
 export function saveDesign(door: DoorLike, opts: DoorOpts = {}) {
@@ -280,6 +282,41 @@ export function trackContact(method: ContactMethod, location: string) {
 
 export function trackFormError(form: string, reason: string) {
   track("form_error", { form, reason });
+}
+
+/** A failed lead request. `reason` comes from a small fixed vocabulary. */
+export class FormFailure extends Error {
+  reason: string;
+  constructor(reason: string, message: string) {
+    super(message);
+    this.reason = reason;
+  }
+}
+
+/** network, bad_response, http_<status>, or rejected; never free text. */
+export function formErrorReason(error: unknown) {
+  return error instanceof FormFailure ? error.reason : "network";
+}
+
+/**
+ * Read the JSON body of an /api/quote response, or throw a FormFailure whose
+ * message is exactly what the customer has always seen.
+ */
+export async function readJsonResponse<T extends { message?: string }>(
+  response: Response,
+  fallback: string,
+): Promise<T> {
+  let result: T;
+  try {
+    result = (await response.json()) as T;
+  } catch (error) {
+    throw new FormFailure("bad_response", error instanceof Error ? error.message : fallback);
+  }
+  if (!response.ok) {
+    const message = result?.message;
+    throw new FormFailure(message ? "rejected" : `http_${response.status}`, message || fallback);
+  }
+  return result;
 }
 
 /**

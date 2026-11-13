@@ -172,6 +172,8 @@ export function attributionFieldsFor(
     for (const key of [...TOUCH_KEYS, "landing_page", "referrer"] as const) {
       out[key] = source[key];
     }
+    // When the touch above happened. The server reads it as the last touch's date.
+    out.touch_timestamp = source.timestamp;
   }
   if (first) {
     for (const key of [...TOUCH_KEYS, "referrer", "landing_page", "timestamp"] as const) {

@@ -3,6 +3,7 @@ import {
   clickIdLine,
   emptyTracking,
   finishName,
+  firstClickIdLine,
   glassName,
   interestDoorNames,
   interestTags,
@@ -91,7 +92,7 @@ export function optionalGhlFields(
     [env.GHL_FIELD_INTEREST_FINISH, finish],
     [env.GHL_FIELD_FIRST_TOUCH, touchLabel(t.firstTouch)],
     [env.GHL_FIELD_LAST_TOUCH, touchLabel(t.lastTouch)],
-    [env.GHL_FIELD_GCLID, t.clickIds.gclid],
+    [env.GHL_FIELD_GCLID, t.clickIds.gclid || t.firstClickIds.gclid],
     [env.GHL_FIELD_GA_CLIENT_ID, t.gaClientId],
   ];
   return candidates
@@ -180,6 +181,7 @@ export function buildSummary(lead: Omit<LeadRecord, "summary" | "tags">) {
     touchLabel(t.firstTouch) ? `First touch: ${touchLabel(t.firstTouch)}` : "",
     touchLabel(t.lastTouch) ? `Last touch: ${touchLabel(t.lastTouch)}` : "",
     clickIdLine(t) ? `Click ids: ${clickIdLine(t)}` : "",
+    firstClickIdLine(t) ? `First-touch click ids: ${firstClickIdLine(t)}` : "",
     t.gaClientId || t.gaSessionId
       ? `GA client id / session id: ${t.gaClientId || "-"} / ${t.gaSessionId || "-"}`
       : "",
