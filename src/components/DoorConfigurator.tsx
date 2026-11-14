@@ -5,7 +5,24 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { DoorPreview } from "@/components/DoorPreview";
-import { catalog, optionById } from "@/lib/catalog";
+import { TrackedDoorList } from "@/components/TrackedDoorList";
+import {
+  appendTrackingFields,
+  beginQuote,
+  completeDesign,
+  leadSubmitted,
+  saveDesign as trackSaveDesign,
+  selectDoor as trackSelectDoor,
+  formErrorReason,
+  readJsonResponse,
+  trackFormError,
+  trackOption,
+  trackStep,
+  viewDoor,
+  type DoorLike,
+  type DoorOpts,
+} from "@/lib/analytics";
+import { catalog, optionById, type Door } from "@/lib/catalog";
 import {
   choiceById,
   jambOptions,
@@ -15,12 +32,6 @@ import {
 } from "@/lib/design-options";
 import { currentDesignKey, designQuery, savedDesignsKey, type SavedDesign } from "@/lib/design";
 import { isGreaterLasVegasZip, zip5 } from "@/lib/service-area";
-
-declare global {
-  interface Window {
-    dataLayer?: Array<Record<string, unknown>>;
-  }
-}
 
 type Step = "door" | "details" | "review" | "quote";
 type DoorLayout = "all" | "single" | "double";
@@ -32,9 +43,27 @@ const steps: Array<{ id: Step; label: string }> = [
   { id: "quote", label: "Quote" },
 ];
 
-function track(event: string, values: Record<string, unknown> = {}) {
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event, ...values });
+const DESIGNER_LIST = { id: "designer_door_grid", name: "Designer door grid" };
+
+function doorLike(door: Door): DoorLike {
+  return {
+    id: door.id,
+    name: door.name,
+    configuration: door.configuration,
+    layout: door.layout,
+  };
+}
+
+function designOpts(
+  glass: { id: string; name: string },
+  handle: { id: string; name: string },
+  finish: { id: string; name: string },
+): DoorOpts {
+  return {
+    glass: { id: glass.id, name: glass.name },
+    handle: { id: handle.id, name: handle.name },
+    finish: { id: finish.id, name: finish.name },
+  };
 }
 
 export function DoorConfigurator() {
@@ -79,6 +108,7 @@ export function DoorConfigurator() {
   const [zipHint, setZipHint] = useState("");
   const [doorQuery, setDoorQuery] = useState(requestedDoor ? startingDoor.name : "");
   const [visibleDoors, setVisibleDoors] = useState(24);
+  const quoteStarted = useRef(false);
 
   const door = useMemo(
     () => catalog.doors.find((item) => item.id === doorId) ?? catalog.doors[0],
@@ -118,15 +148,47 @@ export function DoorConfigurator() {
     const hasDesignParams = ["glass", "handle", "finish", "lock", "screen", "sidelight", "jamb"].some(
       (key) => params.get(key),
     );
+    // Only a door the visitor actually chose counts as a view: one named in
+    // the link, or one restored from their saved design. The catalog's first
+    // door is just the default, so it would otherwise look like the favorite.
+    let viewed: Door = startingDoor;
+    const doorFromLink =
+      Boolean(requestedDoor) &&
+      (startingDoor.id === requestedDoor || startingDoor.slug === requestedDoor);
+    let chosen = doorFromLink;
+    let ids: Partial<SavedDesign> = {
+      glassId: params.get("glass") ?? undefined,
+      handleId: params.get("handle") ?? undefined,
+      finishId: params.get("finish") ?? undefined,
+    };
     if (!hasDesignParams) {
       const current = readCurrentDesign();
       // A door named in the link (for example from the home page) always
       // wins; the saved options still come back with it.
-      const doorFromLink =
-        startingDoor.id === requestedDoor || startingDoor.slug === requestedDoor;
-      if (current) applyDesign(doorFromLink ? { ...current, doorId: undefined } : current);
+      if (current) {
+        applyDesign(doorFromLink ? { ...current, doorId: undefined } : current);
+        ids = current;
+        const restoredDoor = doorFromLink
+          ? undefined
+          : catalog.doors.find((item) => item.id === current.doorId);
+        if (restoredDoor) {
+          viewed = restoredDoor;
+          chosen = true;
+        }
+      }
     }
     hydrated.current = true;
+    trackStep("designer", "start", 0);
+    if (chosen) {
+      viewDoor(
+        doorLike(viewed),
+        designOpts(
+          optionById(catalog.glass, knownId(catalog.glass, ids.glassId ?? null) ?? catalog.glass[0].id) ?? catalog.glass[0],
+          optionById(catalog.handles, knownId(catalog.handles, ids.handleId ?? null) ?? catalog.handles[0].id) ?? catalog.handles[0],
+          optionById(catalog.finishes, knownId(catalog.finishes, ids.finishId ?? null) ?? catalog.finishes[0].id) ?? catalog.finishes[0],
+        ),
+      );
+    }
     // Restore once. Later edits write the current design back to this browser.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -202,6 +264,7 @@ export function DoorConfigurator() {
     setSavedDoors(next);
     window.localStorage.setItem(savedDesignsKey, JSON.stringify(next));
     setSaveNote("Saved on this browser. Open Design Your Door on this device to see it again.");
+    trackSaveDesign(doorLike(door), designOpts(glass, handle, finish));
   }
   const displayedDoors = filteredDoors.slice(0, visibleDoors);
 
@@ -219,21 +282,46 @@ export function DoorConfigurator() {
     if (!nextDoor.availableFinishIds.includes(finishId)) {
       setFinishId(nextDoor.availableFinishIds[0]);
     }
-    track("configurator_option_select", {
-      option_type: "door",
-      option_id: id,
+    const nextGlass = optionById(
+      catalog.glass,
+      nextDoor.availableGlassIds.includes(glassId) ? glassId : nextDoor.availableGlassIds[0],
+    ) ?? glass;
+    const nextHandle = optionById(
+      catalog.handles,
+      nextDoor.availableHandleIds.includes(handleId) ? handleId : nextDoor.availableHandleIds[0],
+    ) ?? handle;
+    const nextFinish = optionById(
+      catalog.finishes,
+      nextDoor.availableFinishIds.includes(finishId) ? finishId : nextDoor.availableFinishIds[0],
+    ) ?? finish;
+    const nextOpts = designOpts(nextGlass, nextHandle, nextFinish);
+    const position = displayedDoors.findIndex((item) => item.id === id);
+    trackSelectDoor(doorLike(nextDoor), DESIGNER_LIST, {
+      ...nextOpts,
+      index: position >= 0 ? position : undefined,
     });
+    // select_item above already recorded the pick; no extra view on top.
+    viewDoor(doorLike(nextDoor), { ...nextOpts, interest: false });
+  }
+
+  function pickOption(
+    type: "glass" | "handle" | "finish",
+    id: string,
+  ) {
+    trackOption(type, id, doorLike(door));
+    viewDoor(
+      doorLike(door),
+      designOpts(
+        type === "glass" ? (optionById(catalog.glass, id) ?? glass) : glass,
+        type === "handle" ? (optionById(catalog.handles, id) ?? handle) : handle,
+        type === "finish" ? (optionById(catalog.finishes, id) ?? finish) : finish,
+      ),
+    );
   }
 
   function goTo(nextStep: Step) {
-    if (step === "door" && nextStep === "details") {
-      track("configurator_start", { source_page: window.location.pathname });
-    }
     setStep(nextStep);
-    track("configurator_step_view", {
-      step_name: nextStep,
-      step_number: steps.findIndex((item) => item.id === nextStep) + 1,
-    });
+    trackStep("designer", nextStep, steps.findIndex((item) => item.id === nextStep) + 1);
     document
       .getElementById("configurator")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -265,27 +353,27 @@ export function DoorConfigurator() {
     form.set("doorImagePath", door.imageUrl);
     form.set("sourceUrl", window.location.href);
 
-    const query = new URLSearchParams(window.location.search);
-    ["utm_source", "utm_medium", "utm_campaign", "utm_content", "gclid"].forEach(
-      (key) => {
-        const value = query.get(key);
-        if (value) form.set(key, value);
-      },
-    );
+    appendTrackingFields(form);
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
-      const result = (await response.json()) as {
-        message?: string;
-        mockupEligible?: boolean;
-      };
-      if (!response.ok) throw new Error(result.message || "Unable to send quote");
+      const result = await readJsonResponse<{ message?: string; mockupEligible?: boolean }>(
+        response,
+        "Unable to send quote",
+      );
 
       setMockupEligible(Boolean(result.mockupEligible));
       setStatus("success");
-      track("generate_lead", { door_id: door.id, lead_type: "custom_door" });
+      leadSubmitted({
+        leadType: "custom_door",
+        door: doorLike(door),
+        opts: designOpts(glass, handle, finish),
+        email: String(form.get("email") ?? ""),
+        phone: String(form.get("phone") ?? ""),
+      });
     } catch (error) {
       setStatus("error");
+      trackFormError("designer_quote", formErrorReason(error));
       setMessage(
         error instanceof Error
           ? error.message
@@ -301,7 +389,11 @@ export function DoorConfigurator() {
           <button
             className={index <= currentStepIndex ? "step active" : "step"}
             key={item.id}
-            onClick={() => index < currentStepIndex && setStep(item.id)}
+            onClick={() => {
+              if (index >= currentStepIndex) return;
+              setStep(item.id);
+              trackStep("designer", item.id, index + 1);
+            }}
             type="button"
           >
             <span>{index + 1}</span>
@@ -404,7 +496,12 @@ export function DoorConfigurator() {
               <p className="door-results-copy">
                 Showing {displayedDoors.length} of {filteredDoors.length} doors
               </p>
-              <div className="door-grid">
+              <TrackedDoorList
+                className="door-grid"
+                doors={displayedDoors.map(doorLike)}
+                listId={DESIGNER_LIST.id}
+                listName={DESIGNER_LIST.name}
+              >
                 {displayedDoors.map((item) => (
                   <button
                     aria-pressed={item.id === door.id}
@@ -426,7 +523,7 @@ export function DoorConfigurator() {
                     <small>{item.configuration}</small>
                   </button>
                 ))}
-              </div>
+              </TrackedDoorList>
               <SavedDoorList
                 doors={savedDoors}
                 onOpen={(design) => {
@@ -461,10 +558,7 @@ export function DoorConfigurator() {
                 label="Glass"
                 onSelect={(id) => {
                   setGlassId(id);
-                  track("configurator_option_select", {
-                    option_type: "glass",
-                    option_id: id,
-                  });
+                  pickOption("glass", id);
                 }}
                 options={catalog.glass.filter((item) =>
                   door.availableGlassIds.includes(item.id),
@@ -475,10 +569,7 @@ export function DoorConfigurator() {
                 label="Handle"
                 onSelect={(id) => {
                   setHandleId(id);
-                  track("configurator_option_select", {
-                    option_type: "handle",
-                    option_id: id,
-                  });
+                  pickOption("handle", id);
                 }}
                 options={catalog.handles.filter((item) =>
                   door.availableHandleIds.includes(item.id),
@@ -508,10 +599,7 @@ export function DoorConfigurator() {
                         key={item.id}
                         onClick={() => {
                           setFinishId(item.id);
-                          track("configurator_option_select", {
-                            option_type: "finish",
-                            option_id: item.id,
-                          });
+                          pickOption("finish", item.id);
                         }}
                         type="button"
                       >
@@ -523,25 +611,37 @@ export function DoorConfigurator() {
               </fieldset>
               <OptionGroup
                 label="Lock"
-                onSelect={setLockId}
+                onSelect={(id) => {
+                  setLockId(id);
+                  trackOption("lock", id, doorLike(door));
+                }}
                 options={lockOptions}
                 selectedId={lockId}
               />
               <OptionGroup
                 label="Screen"
-                onSelect={setScreenId}
+                onSelect={(id) => {
+                  setScreenId(id);
+                  trackOption("screen", id, doorLike(door));
+                }}
                 options={screenOptions}
                 selectedId={screenId}
               />
               <OptionGroup
                 label="Sidelights"
-                onSelect={setSidelightId}
+                onSelect={(id) => {
+                  setSidelightId(id);
+                  trackOption("sidelight", id, doorLike(door));
+                }}
                 options={sidelightOptions}
                 selectedId={sidelightId}
               />
               <OptionGroup
                 label="Door jamb"
-                onSelect={setJambId}
+                onSelect={(id) => {
+                  setJambId(id);
+                  trackOption("jamb", id, doorLike(door));
+                }}
                 options={jambOptions}
                 selectedId={jambId}
               />
@@ -552,7 +652,7 @@ export function DoorConfigurator() {
                 <button
                   className="primary-action"
                   onClick={() => {
-                    track("configurator_complete", { door_id: door.id });
+                    completeDesign(doorLike(door), designOpts(glass, handle, finish));
                     goTo("review");
                   }}
                 >
@@ -630,7 +730,15 @@ export function DoorConfigurator() {
                 Tell us about your project. Your design selections will be sent
                 with your request.
               </p>
-              <form className="quote-form" onSubmit={submitQuote}>
+              <form
+                className="quote-form"
+                onFocus={() => {
+                  if (quoteStarted.current) return;
+                  quoteStarted.current = true;
+                  beginQuote(doorLike(door), designOpts(glass, handle, finish), "custom_door");
+                }}
+                onSubmit={submitQuote}
+              >
                 <input
                   aria-hidden="true"
                   className="honeypot"

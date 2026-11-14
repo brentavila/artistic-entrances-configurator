@@ -67,7 +67,7 @@ export function ShowroomMap({
             </div>
           </dl>
           <div className="tr-map-actions">
-            <a className="primary-action" href={directionsUrl}>
+            <a className="primary-action" data-cta-location="showroom_map" href={directionsUrl}>
               Get Directions
             </a>
             <a className="tr-link" href={business.googleProfileUrl}>

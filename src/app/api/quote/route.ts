@@ -7,8 +7,10 @@ import {
   buildSummary,
   deliverToGoHighLevel,
   leadTags,
+  optionalGhlFields,
   type LeadRecord,
 } from "@/lib/ghl";
+import { parseTracking, trackingFormFields } from "@/lib/lead-tracking";
 import { serviceAreaForZip, zip5 } from "@/lib/service-area";
 
 export const runtime = "nodejs";
@@ -68,6 +70,7 @@ export async function POST(request: Request) {
       return value instanceof File && value.size > 0 ? value.name : "";
     })
     .filter(Boolean);
+  const tracking = parseTracking((key) => form.get(key));
   const area = serviceAreaForZip(zip);
   const mockupEligible = leadType === "quote" && area.inArea;
   const partial = {
@@ -101,16 +104,17 @@ export async function POST(request: Request) {
     jambName: asText(form.get("jambName")),
     doorImageUrl: "",
     sourceUrl: asText(form.get("sourceUrl")),
-    utmSource: asText(form.get("utm_source")),
-    utmMedium: asText(form.get("utm_medium")),
-    utmCampaign: asText(form.get("utm_campaign")),
-    utmContent: asText(form.get("utm_content")),
-    gclid: asText(form.get("gclid")),
+    utmSource: tracking.lastTouch.source,
+    utmMedium: tracking.lastTouch.medium,
+    utmCampaign: tracking.lastTouch.campaign,
+    utmContent: tracking.lastTouch.content,
+    gclid: tracking.clickIds.gclid,
     entryPhotoName: extraPhotoNames.join(", "),
     inArea: area.inArea,
     serviceArea: area.label,
     mockupEligible,
     consentTimestamp: new Date().toISOString(),
+    tracking,
   };
   const doorImage = await readDoorImage(asText(form.get("doorImagePath")));
   if (doorImage) partial.doorImageUrl = doorImage.url;
@@ -119,6 +123,12 @@ export async function POST(request: Request) {
     tags: [...leadTags(partial), ...(plannerLead ? ["entry-planner"] : [])],
     summary: buildSummary(partial),
   };
+
+  if (process.env.NODE_ENV !== "production") {
+    console.info(
+      `[quote] tags=${lead.tags.join(",")} summaryLines=${lead.summary.split("\n").length}`,
+    );
+  }
 
   const webhookUrl = process.env.N8N_QUOTE_WEBHOOK_URL;
   const ghlToken = process.env.GHL_PRIVATE_INTEGRATION_TOKEN;
@@ -153,6 +163,14 @@ export async function POST(request: Request) {
       plannerLead ? "entry-planner" : `website-${lead.leadType}`,
     );
     form.set("doorImageUrl", lead.doorImageUrl);
+    // Cleaned tracking values under stable names, replacing whatever the
+    // browser sent, plus the optional GHL custom fields (ids come from the
+    // GHL_FIELD_* environment variables) as one JSON list for the workflow.
+    for (const [key, value] of Object.entries(trackingFormFields(tracking))) {
+      if (value) form.set(key, value);
+      else form.delete(key);
+    }
+    form.set("ghlExtraFields", JSON.stringify(optionalGhlFields(lead)));
     if (doorImage) {
       form.set(
         "doorImage",
