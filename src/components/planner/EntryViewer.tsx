@@ -2,7 +2,7 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -13,7 +13,6 @@ import {
   Opening,
   PlannerView,
   WallRect,
-  doorLayers,
   doorLeaf,
   doorTextureSrc,
   facadeFromMark,
@@ -21,6 +20,7 @@ import {
   hingeX,
   swingRadians,
 } from "@/lib/planner";
+import { DoorArt, doorArtKey, prepareDoorArt } from "@/lib/door-art";
 
 const PHOTO_Z = -0.2;
 // The old door sits just proud of the new frame so it hides it until it dissolves.
@@ -53,6 +53,10 @@ export function EntryViewer({
   interiorMark,
   plateUrl,
   removed,
+  glass,
+  finish,
+  preloadDoorUrls,
+  onBusyChange,
 }: {
   doorImageUrl: string;
   photoUrl: string;
@@ -73,11 +77,67 @@ export function EntryViewer({
   plateUrl?: string | null;
   /** Box around what was painted out, as fractions of the photo. */
   removed?: DoorMark | null;
+  /** The glass the customer chose. */
+  glass?: { id: string; name: string };
+  /** The finish the customer chose. */
+  finish?: { id: string; name: string; hex: string; textureUrl: string | null };
+  /** Doors the customer is likely to step to next, prepared in idle time. */
+  preloadDoorUrls?: string[];
+  /** True while the requested door, glass, or finish is still being prepared. */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const photo = usePreviewTexture(photoUrl);
   const plate = usePreviewTexture(plateUrl ?? null);
   const interior = usePreviewTexture(interiorPhotoUrl ?? null);
-  const door = useDoorTextures(doorTextureSrc(doorImageUrl));
+  const stage = useRef<RevealStage>({ playing: false, dissolve: 0, settle: 1, sweep: 0 });
+  const capture = useRef<(() => HTMLCanvasElement) | null>(null);
+  const overlay = useRef<HTMLCanvasElement>(null);
+  const fadePending = useRef(false);
+  const setCapture = useCallback((take: () => HTMLCanvasElement) => {
+    capture.current = take;
+  }, []);
+
+  // Before the door changes, the current frame is copied onto a canvas over
+  // the 3D view, the door is swapped underneath, and the copy fades away.
+  const freezeFrame = useCallback(() => {
+    const take = capture.current;
+    const layer = overlay.current;
+    if (!take || !layer || stage.current.playing) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const source = take();
+    if (!source.width || !source.height) return;
+    layer.width = source.width;
+    layer.height = source.height;
+    layer.getContext("2d")?.drawImage(source, 0, 0);
+    layer.getAnimations().forEach((animation) => animation.cancel());
+    layer.style.opacity = "1";
+    fadePending.current = true;
+  }, []);
+
+  const door = useDoorArt(
+    doorTextureSrc(doorImageUrl),
+    glass ?? DEFAULT_GLASS,
+    finish ?? DEFAULT_FINISH,
+    preloadDoorUrls,
+    onBusyChange,
+    freezeFrame,
+  );
+  const textures = useArtTextures(door.art);
+
+  // Once the new door has been drawn, fade the frozen frame away.
+  useEffect(() => {
+    if (!fadePending.current) return;
+    fadePending.current = false;
+    const layer = overlay.current;
+    if (!layer) return;
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => {
+        layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 360, easing: "ease-out" });
+        layer.style.opacity = "0";
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [textures]);
 
   return (
     <div className="planner-canvas">
@@ -94,13 +154,15 @@ export function EntryViewer({
           gl={{ antialias: true }}
         >
           <color args={["#d5cec1"]} attach="background" />
+          <FrameCapture onReady={setCapture} />
           <EntryScene
+            art={door.art}
             compare={compare}
             onRevealEnd={onRevealEnd}
             revealNonce={revealNonce}
             doorOpen={doorOpen}
-            doorIron={door.iron}
-            doorTexture={door.map}
+            stage={stage}
+            textures={textures}
             interiorMark={interiorMark}
             interiorTexture={interior.texture}
             plateTexture={plate.texture}
@@ -113,6 +175,7 @@ export function EntryViewer({
           />
         </Canvas>
       )}
+      <canvas aria-hidden="true" className="planner-freeze" ref={overlay} />
       {door.failed && (
         <p className="planner-note">
           The door photo could not be loaded, so a plain door is shown in the opening.
@@ -126,14 +189,15 @@ function EntryScene({
   opening,
   mark,
   photoTexture,
-  doorTexture,
+  art,
+  textures,
+  stage,
   doorOpen,
   viewName,
   viewNonce,
   revealNonce,
   compare,
   onRevealEnd,
-  doorIron,
   interiorTexture,
   interiorMark,
   plateTexture,
@@ -142,8 +206,9 @@ function EntryScene({
   opening: Opening;
   mark: DoorMark;
   photoTexture: THREE.Texture;
-  doorTexture: THREE.Texture | null;
-  doorIron: THREE.Texture | null;
+  art: DoorArt | null;
+  textures: ArtTextures | null;
+  stage: RefObject<RevealStage>;
   interiorTexture: THREE.Texture | null;
   interiorMark?: DoorMark;
   plateTexture: THREE.Texture | null;
@@ -155,7 +220,6 @@ function EntryScene({
   compare: number;
   onRevealEnd: () => void;
 }) {
-  const stage = useRef<RevealStage>({ playing: false, dissolve: 0, settle: 1, sweep: 0 });
   const [playing, setPlaying] = useState(false);
   const facade = useMemo(() => facadeFromMark(opening, mark), [opening, mark]);
   const rects = useMemo(() => facadeRects(facade, opening), [facade, opening]);
@@ -202,13 +266,10 @@ function EntryScene({
       ))}
 
       <OpeningTrim opening={opening} />
-      <HingedDoor
-        doorOpen={doorOpen}
-        iron={doorIron}
-        opening={opening}
-        stage={stage}
-        texture={doorTexture}
-      />
+      {art?.kind === "parts" && art.shaped && textures?.mask && (
+        <DoorSurround mask={textures.mask} opening={opening} />
+      )}
+      <HingedDoor art={art} doorOpen={doorOpen} opening={opening} stage={stage} textures={textures} />
       <OldDoor
         compare={compare}
         facade={facade}
@@ -239,21 +300,22 @@ function EntryScene({
 
 /** The new door frame: casing on the face, jambs lining the opening, and the sill. */
 function OpeningTrim({ opening }: { opening: Opening }) {
-  const casing = "#3c342c";
+  const casing = CASING;
   const depth = opening.jambDepth + 0.4;
   const midZ = (opening.jambDepth - 0.4) / 2;
   return (
     <group>
-      <mesh position={[-opening.width / 2 + 0.7, opening.height / 2, -0.45]}>
-        <boxGeometry args={[1.4, opening.height, 1.1]} />
+      {/* The casing laps the door's edge, like a stop, so no light shows around the door. */}
+      <mesh position={[-opening.width / 2 + CASING_SIDE / 2, opening.height / 2, -0.45]}>
+        <boxGeometry args={[CASING_SIDE, opening.height, 1.1]} />
         <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
       </mesh>
-      <mesh position={[opening.width / 2 - 0.7, opening.height / 2, -0.45]}>
-        <boxGeometry args={[1.4, opening.height, 1.1]} />
+      <mesh position={[opening.width / 2 - CASING_SIDE / 2, opening.height / 2, -0.45]}>
+        <boxGeometry args={[CASING_SIDE, opening.height, 1.1]} />
         <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
       </mesh>
-      <mesh position={[0, opening.height - 0.7, -0.45]}>
-        <boxGeometry args={[opening.width, 1.4, 1.1]} />
+      <mesh position={[0, opening.height - CASING_HEAD / 2, -0.45]}>
+        <boxGeometry args={[opening.width, CASING_HEAD, 1.1]} />
         <meshStandardMaterial color={casing} metalness={0.28} roughness={0.52} />
       </mesh>
       {/* Jambs through the wall thickness, so an open door shows a frame, not a gap. */}
@@ -288,15 +350,14 @@ function OpeningTrim({ opening }: { opening: Opening }) {
 function HingedDoor({
   opening,
   doorOpen,
-  texture,
-  iron,
+  art,
+  textures,
   stage,
 }: {
   opening: Opening;
   doorOpen: number;
-  texture: THREE.Texture | null;
-  /** White where the door is iron, black where it is glass. */
-  iron: THREE.Texture | null;
+  art: DoorArt | null;
+  textures: ArtTextures | null;
   stage: RefObject<RevealStage>;
 }) {
   const group = useRef<THREE.Group>(null);
@@ -305,7 +366,6 @@ function HingedDoor({
   const leaf = doorLeaf(opening);
   // The leaf runs from the hinge toward the latch, across the opening.
   const towardLock = hingeX(opening) < 0 ? 1 : -1;
-  const face = texture ? "#ffffff" : "#2b2926";
 
   useEffect(() => {
     reduceMotion.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -326,99 +386,210 @@ function HingedDoor({
 
   return (
     <group position={[hingeX(opening), FRAME.sill, 0.75]} ref={group}>
-      {texture && iron ? (
-        <group position={[towardLock * (leaf.width / 2), leaf.height / 2, 0]}>
-          {/* The ironwork is cut out of the photo and stacked through the door's
-              thickness, so the scrollwork has real depth and the glass is open. */}
-          {IRON_LAYERS.map((depth, index) => {
-            const outer = index === 0 || index === IRON_LAYERS.length - 1;
-            return (
-              <mesh
-                castShadow={index === 0}
-                key={depth}
-                position={[0, 0, depth * leaf.thickness]}
-                rotation={[0, Math.PI, 0]}
-              >
-                <planeGeometry args={[leaf.width, leaf.height]} />
-                <meshStandardMaterial
-                  alphaMap={iron}
-                  alphaTest={0.5}
-                  bumpMap={outer ? texture : undefined}
-                  bumpScale={outer ? 1.4 : 0}
-                  color={outer ? "#ffffff" : "#1c1916"}
-                  map={outer ? texture : undefined}
-                  metalness={0.38}
-                  roughness={0.46}
-                  side={THREE.DoubleSide}
-                />
-              </mesh>
-            );
-          })}
-          <mesh position={[0, 0, leaf.thickness / 2]} rotation={[0, Math.PI, 0]}>
-            <planeGeometry args={[leaf.width - 0.6, leaf.height - 0.6]} />
+      <group position={[towardLock * (leaf.width / 2), leaf.height / 2, 0]}>
+        {art?.kind === "parts" && textures?.iron && textures.mask ? (
+          <IronLeaf art={art} leaf={leaf} textures={textures} />
+        ) : (
+          <SlabLeaf leaf={leaf} texture={textures?.photo ?? null} />
+        )}
+      </group>
+    </group>
+  );
+}
+
+type Leaf = ReturnType<typeof doorLeaf>;
+
+/** Fallback: the catalog photo on a plain slab, or a dark slab while nothing is ready. */
+function SlabLeaf({ leaf, texture }: { leaf: Leaf; texture: THREE.Texture | null }) {
+  const face = texture ? "#ffffff" : "#2b2926";
+  return (
+    <mesh castShadow position={[0, 0, leaf.thickness / 2]}>
+      <boxGeometry args={[leaf.width, leaf.height, leaf.thickness]} />
+      <meshStandardMaterial attach="material-0" color="#241f1b" metalness={0.22} roughness={0.58} />
+      <meshStandardMaterial attach="material-1" color="#241f1b" metalness={0.22} roughness={0.58} />
+      <meshStandardMaterial attach="material-2" color="#241f1b" metalness={0.22} roughness={0.58} />
+      <meshStandardMaterial attach="material-3" color="#241f1b" metalness={0.22} roughness={0.58} />
+      <meshStandardMaterial
+        attach="material-4"
+        color={face}
+        map={texture ?? undefined}
+        metalness={0.06}
+        roughness={0.48}
+      />
+      <meshStandardMaterial
+        attach="material-5"
+        color={face}
+        map={texture ?? undefined}
+        metalness={0.06}
+        roughness={0.48}
+      />
+    </mesh>
+  );
+}
+
+/**
+ * The door drawn in the chosen finish and glass. The iron is cut out of the
+ * render and stacked through the door's thickness, so the scrollwork has real
+ * depth. Clear glass is a see-through pane; obscure glass is the designer's
+ * textured glass, drawn as seen from outside on the outer face and as seen
+ * from inside on the inner face, with a reflective pane over each.
+ */
+function IronLeaf({
+  art,
+  leaf,
+  textures,
+}: {
+  art: Extract<DoorArt, { kind: "parts" }>;
+  leaf: Leaf;
+  textures: ArtTextures;
+}) {
+  const { width, height, thickness } = leaf;
+  const obscure = Boolean(textures.glassOutside && textures.glassInside);
+  // The face is turned to the street, so the photo's left edge sits at +X.
+  const stiles = [art.edges.left ? 1 : 0, art.edges.right ? -1 : 0].filter((sign) => sign !== 0);
+  const rails = [art.edges.top ? 1 : 0, art.edges.bottom ? -1 : 0].filter((sign) => sign !== 0);
+
+  return (
+    <>
+      {IRON_LAYERS.map((depth, index) => {
+        const outer = index === 0 || index === IRON_LAYERS.length - 1;
+        return (
+          <mesh
+            castShadow={index === 0}
+            key={depth}
+            position={[0, 0, depth * thickness]}
+            rotation={[0, Math.PI, 0]}
+          >
+            <planeGeometry args={[width, height]} />
+            <meshStandardMaterial
+              alphaMap={textures.mask ?? undefined}
+              alphaTest={0.5}
+              bumpMap={outer ? (textures.iron ?? undefined) : undefined}
+              bumpScale={outer ? 1.4 : 0}
+              color={outer ? "#ffffff" : "#8a847c"}
+              map={textures.iron ?? undefined}
+              metalness={0.38}
+              roughness={0.46}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        );
+      })}
+      {art.hasGlass && obscure && (
+        <>
+          <mesh position={[0, 0, thickness * 0.46]} rotation={[0, Math.PI, 0]}>
+            <planeGeometry args={[width, height]} />
+            <meshBasicMaterial
+              alphaMap={textures.mask ?? undefined}
+              alphaTest={0.5}
+              map={textures.glassOutside ?? undefined}
+              onBeforeCompile={alphaFromDoorUnit}
+              side={THREE.FrontSide}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh position={[0, 0, thickness * 0.54]} rotation={[0, Math.PI, 0]}>
+            <planeGeometry args={[width, height]} />
+            <meshBasicMaterial
+              alphaMap={textures.mask ?? undefined}
+              alphaTest={0.5}
+              map={textures.glassInside ?? undefined}
+              onBeforeCompile={alphaFromDoorUnit}
+              side={THREE.BackSide}
+              toneMapped={false}
+            />
+          </mesh>
+        </>
+      )}
+      {art.hasGlass &&
+        GLASS_SHEENS.map(([depth, side]) => (
+          <mesh key={depth} position={[0, 0, thickness * depth]} rotation={[0, Math.PI, 0]}>
+            <planeGeometry args={[width, height]} />
             <meshPhysicalMaterial
+              alphaMap={textures.mask ?? undefined}
               clearcoat={1}
               clearcoatRoughness={0.05}
               color="#dbe6e6"
               depthWrite={false}
               envMapIntensity={1.8}
               metalness={0}
-              opacity={0.3}
+              onBeforeCompile={alphaFromDoorUnit}
+              opacity={obscure ? 0.12 : 0.18}
               roughness={0.08}
-              side={THREE.DoubleSide}
+              side={side}
               transparent
             />
           </mesh>
-          {[-1, 1].map((sign) => (
-            <mesh
-              castShadow
-              key={`stile-${sign}`}
-              position={[sign * (leaf.width / 2 - 0.2), 0, leaf.thickness / 2]}
-            >
-              <boxGeometry args={[0.4, leaf.height, leaf.thickness]} />
-              <meshStandardMaterial color="#1c1916" metalness={0.5} roughness={0.5} />
-            </mesh>
-          ))}
-          {[-1, 1].map((sign) => (
-            <mesh
-              castShadow
-              key={`rail-${sign}`}
-              position={[0, sign * (leaf.height / 2 - 0.2), leaf.thickness / 2]}
-            >
-              <boxGeometry args={[leaf.width, 0.4, leaf.thickness]} />
-              <meshStandardMaterial color="#1c1916" metalness={0.5} roughness={0.5} />
-            </mesh>
-          ))}
-        </group>
-      ) : (
-        <mesh
-          castShadow
-          position={[towardLock * (leaf.width / 2), leaf.height / 2, leaf.thickness / 2]}
-        >
-          <boxGeometry args={[leaf.width, leaf.height, leaf.thickness]} />
-          <meshStandardMaterial attach="material-0" color="#241f1b" metalness={0.22} roughness={0.58} />
-          <meshStandardMaterial attach="material-1" color="#241f1b" metalness={0.22} roughness={0.58} />
-          <meshStandardMaterial attach="material-2" color="#241f1b" metalness={0.22} roughness={0.58} />
-          <meshStandardMaterial attach="material-3" color="#241f1b" metalness={0.22} roughness={0.58} />
+        ))}
+      {stiles.map((sign) => (
+        <mesh castShadow key={`stile-${sign}`} position={[sign * (width / 2 - 0.2), 0, thickness / 2]}>
+          <boxGeometry args={[0.4, height, thickness]} />
+          <meshStandardMaterial color={art.ironHex} metalness={0.5} roughness={0.5} />
+        </mesh>
+      ))}
+      {rails.map((sign) => (
+        <mesh castShadow key={`rail-${sign}`} position={[0, sign * (height / 2 - 0.2), thickness / 2]}>
+          <boxGeometry args={[width, 0.4, thickness]} />
+          <meshStandardMaterial color={art.ironHex} metalness={0.5} roughness={0.5} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+/** A reflective pane just inside each face of the glass: depth through the door, and the side it faces. */
+const GLASS_SHEENS = [
+  [0.38, THREE.FrontSide],
+  [0.62, THREE.BackSide],
+] as const;
+
+/**
+ * Arched and shaped doors leave part of the rectangular opening outside the
+ * door. That part is filled as fixed frame, the same color as the casing, so
+ * it stays put when the door swings.
+ */
+function DoorSurround({ opening, mask }: { opening: Opening; mask: THREE.Texture }) {
+  const leaf = doorLeaf(opening);
+  const towardLock = hingeX(opening) < 0 ? 1 : -1;
+  const x = hingeX(opening) + towardLock * (leaf.width / 2);
+  return (
+    <group position={[x, FRAME.sill + leaf.height / 2, 0.75]}>
+      {IRON_LAYERS.map((depth) => (
+        <mesh key={depth} position={[0, 0, depth * leaf.thickness]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[leaf.width, leaf.height]} />
           <meshStandardMaterial
-            attach="material-4"
-            color={face}
-            map={texture ?? undefined}
-            metalness={0.06}
-            roughness={0.48}
-          />
-          <meshStandardMaterial
-            attach="material-5"
-            color={face}
-            map={texture ?? undefined}
-            metalness={0.06}
-            roughness={0.48}
+            alphaMap={mask}
+            alphaTest={0.5}
+            color={CASING}
+            metalness={0.28}
+            onBeforeCompile={alphaOutsideDoorUnit}
+            roughness={0.52}
+            side={THREE.DoubleSide}
           />
         </mesh>
-      )}
+      ))}
     </group>
   );
 }
+
+/** The door art's mask keeps the door unit in red and the iron in green. */
+function alphaFromDoorUnit(shader: THREE.WebGLProgramParametersWithUniforms) {
+  shader.fragmentShader = shader.fragmentShader.replace(
+    "#include <alphamap_fragment>",
+    "#ifdef USE_ALPHAMAP\n\tdiffuseColor.a *= texture2D( alphaMap, vAlphaMapUv ).r;\n#endif",
+  );
+}
+
+function alphaOutsideDoorUnit(shader: THREE.WebGLProgramParametersWithUniforms) {
+  shader.fragmentShader = shader.fragmentShader.replace(
+    "#include <alphamap_fragment>",
+    "#ifdef USE_ALPHAMAP\n\tdiffuseColor.a *= 1.0 - texture2D( alphaMap, vAlphaMapUv ).r;\n#endif",
+  );
+}
+
+const CASING = "#3c342c";
+const CASING_SIDE = FRAME.side + 0.15;
+const CASING_HEAD = FRAME.head + 0.15;
 
 const IRON_LAYERS = [0, 0.2, 0.4, 0.6, 0.8, 1];
 
@@ -915,36 +1086,130 @@ function usePreviewTexture(url: string | null) {
   return state.url === url ? state : { url, texture: null, failed: false };
 }
 
-/** The catalog photo cropped to the door, plus a cutout of its ironwork when it has glass. */
-function useDoorTextures(url: string) {
-  const [state, setState] = useState<{
-    url: string | null;
-    map: THREE.Texture | null;
-    iron: THREE.Texture | null;
-    failed: boolean;
-  }>({ url: null, map: null, iron: null, failed: false });
+const DEFAULT_GLASS = { id: "clear", name: "Clear" };
+const DEFAULT_FINISH = { id: "as-shown", name: "As shown", hex: "#1c1c1c", textureUrl: null };
+
+type ArtTextures = {
+  iron: THREE.Texture | null;
+  mask: THREE.Texture | null;
+  glassOutside: THREE.Texture | null;
+  glassInside: THREE.Texture | null;
+  photo: THREE.Texture | null;
+};
+
+function canvasTexture(canvas: HTMLCanvasElement | null, color: boolean) {
+  if (!canvas) return null;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/** GPU textures for the door being shown. Dropped textures are disposed. */
+function useArtTextures(art: DoorArt | null): ArtTextures | null {
+  const textures = useMemo<ArtTextures | null>(() => {
+    if (!art) return null;
+    if (art.kind === "photo") {
+      return {
+        iron: null,
+        mask: null,
+        glassOutside: null,
+        glassInside: null,
+        photo: canvasTexture(art.photo, true),
+      };
+    }
+    return {
+      iron: canvasTexture(art.iron, true),
+      mask: canvasTexture(art.mask, false),
+      glassOutside: canvasTexture(art.glassOutside, true),
+      glassInside: canvasTexture(art.glassInside, true),
+      photo: null,
+    };
+  }, [art]);
+  useEffect(
+    () => () => {
+      if (!textures) return;
+      Object.values(textures).forEach((texture) => texture?.dispose());
+    },
+    [textures],
+  );
+  return textures;
+}
+
+/**
+ * The door to show, in the chosen glass and finish. The door on screen stays
+ * until the next one is ready, so changing doors never leaves a blank opening.
+ */
+function useDoorArt(
+  src: string,
+  glass: { id: string },
+  finish: { id: string; hex: string; textureUrl: string | null },
+  preloadUrls: string[] | undefined,
+  onBusyChange: ((busy: boolean) => void) | undefined,
+  beforeSwap: () => void,
+) {
+  const key = doorArtKey(src, glass, finish);
+  const [state, setState] = useState<{ art: DoorArt | null; failedKey: string | null }>({
+    art: null,
+    failedKey: null,
+  });
+  const latest = useRef({ preloadUrls, onBusyChange, beforeSwap });
+  useEffect(() => {
+    latest.current = { preloadUrls, onBusyChange, beforeSwap };
+  }, [preloadUrls, onBusyChange, beforeSwap]);
+
+  const glassId = glass.id;
+  const finishId = finish.id;
+  const finishHex = finish.hex;
+  const finishTexture = finish.textureUrl;
 
   useEffect(() => {
     let alive = true;
-    const loaded: THREE.Texture[] = [];
-    (async () => {
-      const layers = await doorLayers(url, 1024).catch(() => ({ colorUrl: url, ironUrl: null }));
-      const map = await loadTexture(layers.colorUrl);
-      loaded.push(map);
-      const iron = layers.ironUrl ? await loadTexture(layers.ironUrl, false) : null;
-      if (iron) loaded.push(iron);
-      if (alive) setState({ url, map, iron, failed: false });
-      else loaded.forEach((texture) => texture.dispose());
-    })().catch(() => {
-      if (alive) setState({ url, map: null, iron: null, failed: true });
-    });
+    const chosenGlass = { id: glassId };
+    const chosenFinish = { id: finishId, hex: finishHex, textureUrl: finishTexture };
+    latest.current.onBusyChange?.(true);
+    prepareDoorArt(src, chosenGlass, chosenFinish)
+      .then((art) => {
+        if (!alive) return;
+        latest.current.beforeSwap();
+        setState({ art, failedKey: null });
+        latest.current.onBusyChange?.(false);
+        // Get the neighbors ready so the next step feels instant.
+        const queue = [...(latest.current.preloadUrls ?? [])];
+        const preloadNext = (): Promise<void> => {
+          const next = queue.shift();
+          if (!alive || !next) return Promise.resolve();
+          return prepareDoorArt(doorTextureSrc(next), chosenGlass, chosenFinish).then(
+            preloadNext,
+            preloadNext,
+          );
+        };
+        void preloadNext();
+      })
+      .catch(() => {
+        if (!alive) return;
+        setState((now) => ({ art: now.art, failedKey: key }));
+        latest.current.onBusyChange?.(false);
+      });
     return () => {
       alive = false;
-      loaded.forEach((texture) => texture.dispose());
     };
-  }, [url]);
+  }, [key, src, glassId, finishId, finishHex, finishTexture]);
 
-  return state.url === url ? state : { url, map: null, iron: null, failed: false };
+  const failed = state.failedKey === key;
+  return { art: failed ? null : state.art, failed };
+}
+
+/** Hands the parent a way to draw the current view on demand. */
+function FrameCapture({ onReady }: { onReady: (take: () => HTMLCanvasElement) => void }) {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    onReady(() => {
+      gl.render(scene, camera);
+      return gl.domElement;
+    });
+  }, [camera, gl, onReady, scene]);
+  return null;
 }
 
 function clampNumber(value: number, min: number, max: number) {

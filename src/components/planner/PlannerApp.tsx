@@ -2,9 +2,17 @@
 
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import { catalog, optionById } from "@/lib/catalog";
+import {
+  currentDesignKey,
+  type DoorDesign,
+  designFromParams,
+  findDoor,
+  parseDesign,
+  resolveDesign,
+} from "@/lib/design";
 import {
   DoorMark,
   Opening,
@@ -32,6 +40,7 @@ const EntryViewer = dynamic(
   },
 );
 
+type DoorLayout = "all" | "single" | "double";
 type Outlining = "idle" | "working" | "found" | "ready" | "missed" | "snapped" | "manual";
 type Step = "door" | "opening" | "photo" | "walk" | "quote";
 
@@ -62,11 +71,26 @@ declare global {
 
 export function PlannerApp() {
   const params = useSearchParams();
-  const requestedId = params.get("door");
-  const requestedDoor = catalog.doors.find((item) => item.id === requestedId);
+  const requested = designFromParams(params);
+  const requestedDoor = findDoor(requested.doorId);
+  const startingDesign = resolveDesign(requestedDoor ?? catalog.doors[0], requested);
 
   const [step, setStep] = useState<Step>(requestedDoor ? "opening" : "door");
-  const [doorId, setDoorId] = useState(requestedDoor?.id ?? catalog.doors[0].id);
+  const [doorId, setDoorId] = useState(startingDesign.doorId);
+  const [glassId, setGlassId] = useState(startingDesign.glassId);
+  const [finishId, setFinishId] = useState(startingDesign.finishId);
+  const [handleId, setHandleId] = useState(startingDesign.handleId);
+  const [layoutFilter, setLayoutFilter] = useState<DoorLayout>("all");
+  // A design the customer brought from the designer stays first in the door
+  // rail, so they can always get back to it.
+  const [pinned, setPinned] = useState<DoorDesign | null>(
+    requestedDoor && (requested.glassId || requested.finishId) ? startingDesign : null,
+  );
+  const [doorBusy, setDoorBusy] = useState(false);
+  // The browser's saved design is read through an external-store subscription,
+  // so the server render and the first client render both see "none".
+  const savedRaw = useSyncExternalStore(subscribeToDesign, readSavedRaw, () => null);
+  const savedDesign = useMemo(() => parseDesign(savedRaw), [savedRaw]);
   const [doorQuery, setDoorQuery] = useState("");
   const [visibleDoors, setVisibleDoors] = useState(24);
   const [draft, setDraft] = useState<OpeningDraft>(defaultOpeningDraft);
@@ -100,20 +124,116 @@ export function PlannerApp() {
     () => catalog.doors.find((item) => item.id === doorId) ?? catalog.doors[0],
     [doorId],
   );
-  const glass = optionById(catalog.glass, door.availableGlassIds[0]) ?? catalog.glass[0];
-  const handle = optionById(catalog.handles, door.availableHandleIds[0]) ?? catalog.handles[0];
-  const finish = optionById(catalog.finishes, door.availableFinishIds[0]) ?? catalog.finishes[0];
+  const glass = optionById(catalog.glass, glassId) ?? catalog.glass[0];
+  const handle = optionById(catalog.handles, handleId) ?? catalog.handles[0];
+  const finish = optionById(catalog.finishes, finishId) ?? catalog.finishes[0];
   const currentStepIndex = steps.findIndex((item) => item.id === step);
   const filteredDoors = useMemo(() => {
     const query = doorQuery.trim().toLowerCase();
-    if (!query) return catalog.doors;
-    return catalog.doors.filter((item) =>
-      [item.id, item.name, item.slug, item.style, item.configuration]
+    return catalog.doors.filter((item) => {
+      if (layoutFilter !== "all" && item.layout !== layoutFilter) return false;
+      if (!query) return true;
+      return [item.id, item.name, item.slug, item.style, item.configuration, item.layout]
         .join(" ")
         .toLowerCase()
-        .includes(query),
-    );
-  }, [doorQuery]);
+        .includes(query);
+    });
+  }, [doorQuery, layoutFilter]);
+
+  // A design carried over from the designer in the link counts once.
+  useEffect(() => {
+    if (requestedDoor && (requested.glassId || requested.finishId)) {
+      track("planner_design_loaded", {
+        door_id: startingDesign.doorId,
+        glass_id: startingDesign.glassId,
+        finish_id: startingDesign.finishId,
+        source: "url",
+      });
+    }
+    // Runs once for the link the planner opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function pickDoor(id: string) {
+    const next = findDoor(id);
+    if (!next) return;
+    const kept = resolveDesign(next, { glassId, finishId, handleId });
+    setDoorId(kept.doorId);
+    setGlassId(kept.glassId);
+    setFinishId(kept.finishId);
+    setHandleId(kept.handleId);
+  }
+
+  // Doors to step through while viewing the home: the same layout as the
+  // door on screen, in catalog order, with the customer's own design first.
+  const cycleDoors = useMemo(() => {
+    const same = catalog.doors.filter((item) => item.layout === door.layout);
+    const pin = pinned ? findDoor(pinned.doorId) : undefined;
+    if (!pin || pin.layout !== door.layout) return same;
+    return [pin, ...same.filter((item) => item.id !== pin.id)];
+  }, [door.layout, pinned]);
+  const cycleIndex = Math.max(0, cycleDoors.findIndex((item) => item.id === door.id));
+  const neighborUrls = useMemo(() => {
+    const count = cycleDoors.length;
+    if (count < 2) return [];
+    return [
+      cycleDoors[(cycleIndex + 1) % count].imageUrl,
+      cycleDoors[(cycleIndex - 1 + count) % count].imageUrl,
+    ];
+  }, [cycleDoors, cycleIndex]);
+
+  function cycleTo(index: number, method: "arrow" | "thumbnail" | "keyboard") {
+    const count = cycleDoors.length;
+    if (!count) return;
+    const nextIndex = ((index % count) + count) % count;
+    const next = cycleDoors[nextIndex];
+    if (next.id === door.id) return;
+    if (pinned && next.id === pinned.doorId) {
+      // Back to the customer's own design, with its glass and finish.
+      const kept = resolveDesign(next, pinned);
+      setDoorId(kept.doorId);
+      setGlassId(kept.glassId);
+      setFinishId(kept.finishId);
+      setHandleId(kept.handleId);
+    } else {
+      pickDoor(next.id);
+    }
+    track("planner_door_cycle", {
+      door_id: next.id,
+      from_door_id: door.id,
+      method,
+      index: nextIndex,
+      layout: door.layout,
+    });
+  }
+
+  function chooseOption(type: "glass" | "finish", id: string) {
+    if (type === "glass") setGlassId(id);
+    else setFinishId(id);
+    track("planner_option_select", { option_type: type, option_id: id, door_id: door.id });
+  }
+
+  function loadSavedDesign() {
+    if (!savedDesign) return;
+    const next = findDoor(savedDesign.doorId);
+    if (!next) return;
+    const kept = resolveDesign(next, savedDesign);
+    setDoorId(kept.doorId);
+    setGlassId(kept.glassId);
+    setFinishId(kept.finishId);
+    setHandleId(kept.handleId);
+    setPinned(kept);
+    track("planner_design_loaded", {
+      door_id: kept.doorId,
+      glass_id: kept.glassId,
+      finish_id: kept.finishId,
+      source: "saved",
+    });
+    track("planner_start", { door_id: kept.doorId });
+    setMessage("");
+    setStep("opening");
+    document.querySelector(".planner-page")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   // The outline model is a few megabytes. Fetch it while the customer is
   // still entering measurements so the photo step feels instant.
@@ -343,7 +463,11 @@ export function PlannerApp() {
     form.set("jambDepth", String(opening.jambDepth));
     form.set("hingeSide", opening.hingeSide);
     form.set("swing", opening.swing);
-    form.set("plannerSummary", plannerSummary(door.name, opening));
+    form.set("plannerSummary", plannerSummary(door.name, opening, {
+      glass: glass.name,
+      handle: handle.name,
+      finish: finish.name,
+    }));
     form.set("leadSource", "entry-planner");
     form.set("sourceUrl", window.location.href);
     form.set("entryPhoto", frontFile);
@@ -398,6 +522,52 @@ export function PlannerApp() {
               Pick the iron door you want to see in the entry. The preview uses
               this photo on a door sized to your opening.
             </p>
+            {savedDesign && (
+              <div className="planner-selected planner-design-card">
+                <span className="door-thumb">
+                  <Image
+                    alt=""
+                    fill
+                    sizes="88px"
+                    src={findDoor(savedDesign.doorId)?.thumbnailUrl ?? ""}
+                    unoptimized
+                  />
+                </span>
+                <div>
+                  <p>Your design</p>
+                  <strong>
+                    {findDoor(savedDesign.doorId)?.name} · {designName(catalog.glass, savedDesign.glassId)} glass ·{" "}
+                    {designName(catalog.finishes, savedDesign.finishId)} finish
+                  </strong>
+                </div>
+                <button className="primary-action" onClick={loadSavedDesign} type="button">
+                  View this door on my home
+                </button>
+              </div>
+            )}
+            <div className="layout-filter" role="group" aria-label="Door type">
+              {(
+                [
+                  ["all", "All doors"],
+                  ["single", "Single doors"],
+                  ["double", "Double doors"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  aria-pressed={layoutFilter === id}
+                  className={layoutFilter === id ? "selected" : ""}
+                  key={id}
+                  onClick={() => {
+                    setLayoutFilter(id);
+                    setVisibleDoors(24);
+                    track("planner_layout_filter", { layout: id });
+                  }}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <label className="door-search">
               Search doors
               <input
@@ -419,7 +589,7 @@ export function PlannerApp() {
                   aria-pressed={item.id === door.id}
                   className={item.id === door.id ? "door-card selected" : "door-card"}
                   key={item.id}
-                  onClick={() => setDoorId(item.id)}
+                  onClick={() => pickDoor(item.id)}
                   type="button"
                 >
                   <span className="door-thumb">
@@ -457,7 +627,12 @@ export function PlannerApp() {
               swings. These measurements size the preview. They are not a
               fabrication drawing.
             </p>
-            <SelectedDoor door={door} onChange={() => go("door")} />
+            <SelectedDoor
+              door={door}
+              finishName={finish.name}
+              glassName={glass.name}
+              onChange={() => go("door")}
+            />
             <div className="quote-form planner-fields">
               <div className="field-row">
                 <label>
@@ -697,8 +872,29 @@ export function PlannerApp() {
                 replaced; the rest is your photo as taken.
               </p>
             </div>
+            <div
+              className="planner-browse"
+              onKeyDown={(event) => {
+                const target = event.target as HTMLElement;
+                if (target.closest("input, select, textarea")) return;
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault();
+                cycleTo(cycleIndex + (event.key === "ArrowRight" ? 1 : -1), "keyboard");
+              }}
+            >
+            <div
+              aria-busy={doorBusy}
+              aria-label={`${door.name} on your entry. Use the left and right arrow keys to change the door.`}
+              className="planner-viewer"
+              role="group"
+              tabIndex={0}
+            >
             <EntryViewer
               doorImageUrl={door.imageUrl}
+              glass={glass}
+              finish={finish}
+              onBusyChange={setDoorBusy}
+              preloadDoorUrls={neighborUrls}
               compare={compare}
               interiorMark={insideMark}
               interiorPhotoUrl={insideUrl}
@@ -713,6 +909,102 @@ export function PlannerApp() {
               viewName={viewName}
               viewNonce={viewNonce}
             />
+              {cycleDoors.length > 1 && (
+                <>
+                  <button
+                    className="planner-arrow"
+                    data-busy={doorBusy || undefined}
+                    data-dir="prev"
+                    onClick={() => cycleTo(cycleIndex - 1, "arrow")}
+                    type="button"
+                  >
+                    <Chevron dir={-1} />
+                    <span className="sr-only">Previous door</span>
+                  </button>
+                  <button
+                    className="planner-arrow"
+                    data-busy={doorBusy || undefined}
+                    data-dir="next"
+                    onClick={() => cycleTo(cycleIndex + 1, "arrow")}
+                    type="button"
+                  >
+                    <Chevron dir={1} />
+                    <span className="sr-only">Next door</span>
+                  </button>
+                </>
+              )}
+            </div>
+            <p aria-live="polite" className="planner-cycle-label">
+              <strong>{door.name}</strong>
+              {pinned?.doorId === door.id && <span className="planner-badge">Your design</span>}
+              <span>
+                {cycleIndex + 1} of {cycleDoors.length} {door.layout} doors
+              </span>
+            </p>
+            <DoorRail
+              busy={doorBusy}
+              current={cycleIndex}
+              doors={cycleDoors}
+              onPick={(index) => cycleTo(index, "thumbnail")}
+              pinnedId={pinned?.doorId ?? null}
+            />
+            </div>
+            <div className="planner-options">
+              <fieldset className="planner-option-row">
+                <legend>
+                  Glass <span>{glass.name}</span>
+                </legend>
+                <div className="planner-chips">
+                  {catalog.glass
+                    .filter((item) => door.availableGlassIds.includes(item.id))
+                    .map((item) => (
+                      <button
+                        aria-pressed={item.id === glass.id}
+                        className="planner-chip"
+                        key={item.id}
+                        onClick={() => chooseOption("glass", item.id)}
+                        type="button"
+                      >
+                        {item.name}
+                      </button>
+                    ))}
+                </div>
+              </fieldset>
+              <fieldset className="planner-option-row">
+                <legend>
+                  Finish <span>{finish.name}</span>
+                </legend>
+                <div className="planner-swatches">
+                  {catalog.finishes
+                    .filter((item) => door.availableFinishIds.includes(item.id))
+                    .map((item) =>
+                      item.id === "as-shown" ? (
+                        <button
+                          aria-pressed={item.id === finish.id}
+                          className="planner-chip planner-chip-small"
+                          key={item.id}
+                          onClick={() => chooseOption("finish", item.id)}
+                          type="button"
+                        >
+                          As shown
+                        </button>
+                      ) : (
+                        <button
+                          aria-label={item.name}
+                          aria-pressed={item.id === finish.id}
+                          className="planner-swatch"
+                          key={item.id}
+                          onClick={() => chooseOption("finish", item.id)}
+                          title={item.name}
+                          type="button"
+                        >
+                          <span style={{ background: item.hex }} />
+                        </button>
+                      ),
+                    )}
+                </div>
+              </fieldset>
+            </div>
             <div className="planner-hud">
               <div className="planner-views" role="group" aria-label="Camera views">
                 {views
@@ -796,6 +1088,9 @@ export function PlannerApp() {
             </p>
             <div className="summary-card">
               <SummaryRow label="Door" value={door.name} />
+              <SummaryRow label="Glass" value={glass.name} />
+              <SummaryRow label="Handle" value={handle.name} />
+              <SummaryRow label="Finish" value={finish.name} />
               <SummaryRow label="Opening" value={`${formatInches(opening.width)} × ${formatInches(opening.height)}`} />
               <SummaryRow label="Jamb depth" value={formatInches(opening.jambDepth)} />
               <SummaryRow label="Handing" value={handingLabel(opening)} />
@@ -906,11 +1201,32 @@ function photoAspect(url: string) {
   });
 }
 
+function subscribeToDesign(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
+
+function readSavedRaw() {
+  try {
+    return window.localStorage.getItem(currentDesignKey);
+  } catch {
+    return null;
+  }
+}
+
+function designName(options: ReadonlyArray<{ id: string; name: string }>, id: string) {
+  return options.find((option) => option.id === id)?.name ?? "";
+}
+
 function SelectedDoor({
   door,
+  glassName,
+  finishName,
   onChange,
 }: {
   door: (typeof catalog.doors)[number];
+  glassName: string;
+  finishName: string;
   onChange: () => void;
 }) {
   return (
@@ -921,6 +1237,7 @@ function SelectedDoor({
       <div>
         <p>{door.style}</p>
         <strong>{door.name}</strong>
+        <p>{glassName} glass · {finishName} finish</p>
       </div>
       <button className="text-action" onClick={onChange} type="button">
         Change door
@@ -961,6 +1278,114 @@ function ChoiceGroup<T extends string>({
         ))}
       </div>
     </fieldset>
+  );
+}
+
+function Chevron({ dir }: { dir: -1 | 1 }) {
+  return (
+    <svg aria-hidden="true" height="22" viewBox="0 0 24 24" width="22">
+      <path
+        d={dir < 0 ? "M14.5 5.5 8 12l6.5 6.5" : "M9.5 5.5 16 12l-6.5 6.5"}
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+const RAIL_ITEM = 60;
+const RAIL_GAP = 8;
+const RAIL_STEP = RAIL_ITEM + RAIL_GAP;
+/** Thumbnails drawn beyond each edge of the rail, so scrolling stays smooth. */
+const RAIL_BUFFER = 4;
+
+/**
+ * Thumbnails of the doors to step through, with the current door centered.
+ * Only the thumbnails near the visible part of the rail are mounted.
+ */
+function DoorRail({
+  doors,
+  current,
+  pinnedId,
+  busy,
+  onPick,
+}: {
+  doors: ReadonlyArray<(typeof catalog.doors)[number]>;
+  current: number;
+  pinnedId: string | null;
+  busy: boolean;
+  onPick: (index: number) => void;
+}) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState(() => ({ left: current * RAIL_STEP, width: 340 }));
+
+  useEffect(() => {
+    const box = scroller.current;
+    if (!box) return;
+    let frame = 0;
+    const measure = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() =>
+        setView({ left: box.scrollLeft, width: box.clientWidth }),
+      );
+    };
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(box);
+    box.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      box.removeEventListener("scroll", measure);
+    };
+  }, []);
+
+  // Keep the current door in the middle of the rail.
+  useEffect(() => {
+    const box = scroller.current;
+    if (!box) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    box.scrollTo({ left: current * RAIL_STEP, behavior: still ? "auto" : "smooth" });
+  }, [current]);
+
+  const pad = Math.max(0, (view.width - RAIL_ITEM) / 2);
+  const first = Math.max(0, Math.floor((view.left - pad) / RAIL_STEP) - RAIL_BUFFER);
+  const last = Math.min(
+    doors.length - 1,
+    Math.ceil((view.left + view.width - pad) / RAIL_STEP) + RAIL_BUFFER,
+  );
+  const shown: number[] = [];
+  for (let index = first; index <= last; index += 1) shown.push(index);
+
+  return (
+    <div aria-label="Doors to try" className="planner-rail" ref={scroller} role="group">
+      <div
+        className="planner-rail-track"
+        style={{ width: pad * 2 + doors.length * RAIL_STEP - RAIL_GAP }}
+      >
+        {shown.map((index) => {
+          const item = doors[index];
+          const pinned = item.id === pinnedId;
+          return (
+            <button
+              aria-current={index === current}
+              aria-label={`Show ${item.name}${pinned ? ", your design" : ""}`}
+              className="planner-rail-item"
+              data-busy={(index === current && busy) || undefined}
+              key={item.id}
+              onClick={() => onPick(index)}
+              style={{ left: pad + index * RAIL_STEP, width: RAIL_ITEM }}
+              type="button"
+            >
+              <Image alt="" fill sizes={`${RAIL_ITEM}px`} src={item.thumbnailUrl} unoptimized />
+              {pinned && <span className="planner-rail-badge">Your design</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

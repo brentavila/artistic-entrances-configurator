@@ -13,6 +13,7 @@ import {
   screenOptions,
   sidelightOptions,
 } from "@/lib/design-options";
+import { currentDesignKey, designQuery, savedDesignsKey, type SavedDesign } from "@/lib/design";
 import { isGreaterLasVegasZip, zip5 } from "@/lib/service-area";
 
 declare global {
@@ -23,23 +24,6 @@ declare global {
 
 type Step = "door" | "details" | "review" | "quote";
 type DoorLayout = "all" | "single" | "double";
-
-type SavedDesign = {
-  id: string;
-  savedAt: string;
-  doorId: string;
-  doorName: string;
-  glassId: string;
-  handleId: string;
-  finishId: string;
-  lockId: string;
-  screenId: string;
-  sidelightId: string;
-  jambId: string;
-};
-
-const currentDesignKey = "ae-current-design";
-const savedDesignsKey = "ae-saved-doors";
 
 const steps: Array<{ id: Step; label: string }> = [
   { id: "door", label: "Door" },
@@ -107,6 +91,7 @@ export function DoorConfigurator() {
   const screen = choiceById(screenOptions, screenId);
   const sidelight = choiceById(sidelightOptions, sidelightId);
   const jamb = choiceById(jambOptions, jambId);
+  const plannerQuery = designQuery({ doorId, glassId, finishId, handleId, lockId, screenId, sidelightId, jambId });
   const currentStepIndex = steps.findIndex((item) => item.id === step);
   const filteredDoors = useMemo(() => {
     const query = doorQuery.trim().toLowerCase();
@@ -362,9 +347,9 @@ export function DoorConfigurator() {
           </p>
           <Link
             className="preview-planner-link"
-            href={`/planner?door=${encodeURIComponent(door.id)}`}
+            href={`/planner?${plannerQuery}`}
           >
-            Preview this door on your entry
+            See this door on your home
           </Link>
         </aside>
 
@@ -620,6 +605,9 @@ export function DoorConfigurator() {
                 </button>
               </div>
               {saveNote ? <p className="save-note">{saveNote}</p> : null}
+              <Link className="secondary-action" href={`/planner?${plannerQuery}`}>
+                See this door on your home
+              </Link>
               <div className="button-row">
                 <button className="text-action" onClick={() => goTo("details")}>
                   Edit Design
