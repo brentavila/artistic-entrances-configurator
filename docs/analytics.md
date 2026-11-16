@@ -135,3 +135,16 @@ Build both in GA4 Explore > Funnel exploration (open funnel, so a visitor can en
 - **Planner** (`flow = planner`): `funnel_step` step `door` > step `opening` > step `photo` > step `walk` > step `quote` > `generate_lead` with `lead_type = entry_planner`.
 
 For a deeper planner read, add `view_item` with item list `planner_home_preview` after `walk`: it separates visitors who only reached the Walk step from those who really looked at a door on their home.
+
+## Conversion APIs and cross-domain (added on `conversion-tracking`)
+
+| Event | Fires when | Where | Notes |
+|---|---|---|---|
+| `shop_click` | A link to artisticentrances.shop is clicked | `AnalyticsProvider.tsx` | `destination`, `cta_location`. GA4 cross-domain linking itself is configured in GA4 admin (see `docs/launch-runbook.md`). |
+| `lead_received` | Server side, after a lead reaches the CRM | `src/lib/server-conversions.ts` (GA4 Measurement Protocol) | Same `event_id` as the browser's `generate_lead`. Reconciliation only; **not** a key event. Needs `GA4_API_SECRET`. |
+| Meta `Lead` (server) | Same moment as `lead_received` | `src/lib/server-conversions.ts` (Meta Conversions API) | Same `event_id` as the browser pixel's `Lead`, so Meta deduplicates. Needs `NEXT_PUBLIC_META_PIXEL_ID` + `META_CAPI_ACCESS_TOKEN`. |
+| Google Ads `conversion` | Browser, with `generate_lead` | `src/lib/analytics.ts` | `transaction_id` = `event_id`. Needs `NEXT_PUBLIC_GOOGLE_ADS_LEAD_SEND_TO`. |
+
+`generate_lead` now carries `event_id`. Every lead form creates one id per submission (`appendTrackingFields` returns it) and sends it with the form, so the browser pixel, the Conversions API, Google Ads and GA4 all refer to the same lead.
+
+Meta browser events mirror GA4: `view_item` → `ViewContent`, `add_to_wishlist` → `AddToWishlist`, `add_to_cart` → `CustomizeProduct`, `begin_checkout` → `InitiateCheckout`, `generate_lead` → `Lead`, `contact_click` → `Contact`. Client-side navigations send a Meta `PageView`.

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
+import { CallTracking } from "@/components/CallTracking";
+import { MetaPixel } from "@/components/MetaPixel";
 import { GoogleTagManager } from "@/components/GoogleTagManager";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -24,7 +26,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <GoogleTagManager />
+        <MetaPixel />
         <AnalyticsProvider />
+        <CallTracking />
         <SiteHeader />
         {children}
         <SiteFooter />

@@ -544,13 +544,14 @@ export function PlannerApp() {
     if (openFile) form.set("entryPhoto3", openFile);
 
     // Campaign, click ids, GA ids, and the doors previewed on the home.
-    appendTrackingFields(form);
+    const eventId = appendTrackingFields(form);
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
       await readJsonResponse(response, "Unable to send quote");
       setStatus("success");
       leadSubmitted({
+        eventId,
         leadType: "entry_planner",
         door: doorLike(door),
         opts: designOpts({ glassId: glass.id, finishId: finish.id, handleId: handle.id }),

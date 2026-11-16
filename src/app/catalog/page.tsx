@@ -23,13 +23,12 @@ export default function CatalogPage() {
         ])}
       />
       <section className="page-hero">
-        <p className="eyebrow">Lead capture</p>
+        <p className="eyebrow">Catalog</p>
         <h1>Request the Iron Door Catalog</h1>
         <p>
-          The catalog popup on the current site asks for contact details before
-          sending sizing, finish, and customization information. Use this page
-          for the same request. It does not by itself design a door. To save
-          glass, handle, and finish, use Design Your Door.
+          Share your contact details and the Las Vegas team will send sizing,
+          finish, and customization information. To choose glass, handle, and
+          finish yourself, use Design Your Door.
         </p>
       </section>
       <section className="split-section">

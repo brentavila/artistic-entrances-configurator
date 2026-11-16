@@ -34,13 +34,14 @@ export function LeadForm({
     const form = new FormData(event.currentTarget);
     form.set("leadType", leadType);
     form.set("sourceUrl", window.location.href);
-    appendTrackingFields(form);
+    const eventId = appendTrackingFields(form);
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
       await readJsonResponse(response, "Unable to send");
       setStatus("success");
       leadSubmitted({
+        eventId,
         leadType,
         email: String(form.get("email") ?? ""),
         phone: String(form.get("phone") ?? ""),

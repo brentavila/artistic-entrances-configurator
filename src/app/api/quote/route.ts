@@ -11,6 +11,11 @@ import {
   type LeadRecord,
 } from "@/lib/ghl";
 import { parseTracking, trackingFormFields } from "@/lib/lead-tracking";
+import {
+  cleanEventId,
+  cleanFbCookie,
+  sendServerConversions,
+} from "@/lib/server-conversions";
 import { serviceAreaForZip, zip5 } from "@/lib/service-area";
 
 export const runtime = "nodejs";
@@ -206,6 +211,31 @@ export async function POST(request: Request) {
         { status: 502 },
       );
     }
+  }
+
+  // The lead is safely in the CRM. Now tell Meta and GA4 from the server, so
+  // the conversion is counted even when an ad blocker stopped the browser tags.
+  const conversions = await sendServerConversions({
+    eventId: cleanEventId(asText(form.get("event_id"))),
+    leadType: lead.leadType,
+    email: lead.email,
+    phone: lead.phone,
+    firstName: lead.firstName,
+    lastName: lead.lastName,
+    zip: lead.zip,
+    sourceUrl: lead.sourceUrl.slice(0, 500),
+    ip: (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim(),
+    userAgent: (request.headers.get("user-agent") ?? "").slice(0, 400),
+    fbp: cleanFbCookie(asText(form.get("fbp"))),
+    fbc: cleanFbCookie(asText(form.get("fbc"))),
+    fbclid: tracking.clickIds.fbclid || tracking.firstClickIds.fbclid,
+    gaClientId: tracking.gaClientId,
+    gaSessionId: tracking.gaSessionId,
+    doorId: lead.doorId,
+    value: 0,
+  });
+  if (process.env.NODE_ENV !== "production") {
+    console.info(`[quote] conversions meta=${conversions.meta} ga4=${conversions.ga4}`);
   }
 
   return NextResponse.json({

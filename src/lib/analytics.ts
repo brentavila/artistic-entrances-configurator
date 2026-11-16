@@ -14,6 +14,7 @@ import { interestFields, recordInterest } from "./interest";
 declare global {
   interface Window {
     dataLayer?: unknown[];
+    fbq?: (...args: unknown[]) => void;
   }
 }
 
@@ -24,6 +25,53 @@ function layer(): unknown[] {
 
 export const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID || "G-4CTB6N724J";
 const ENHANCED_CONVERSIONS = process.env.NEXT_PUBLIC_ENHANCED_CONVERSIONS === "1";
+/** Google Ads lead conversion, "AW-17928892397/<label>". Off when empty. */
+const ADS_LEAD_SEND_TO = process.env.NEXT_PUBLIC_GOOGLE_ADS_LEAD_SEND_TO ?? "";
+
+/** GA4 event -> Meta standard event. Lead carries the shared event id for CAPI dedup. */
+const META_EVENTS: Record<string, string> = {
+  view_item: "ViewContent",
+  add_to_wishlist: "AddToWishlist",
+  add_to_cart: "CustomizeProduct",
+  begin_checkout: "InitiateCheckout",
+  generate_lead: "Lead",
+};
+
+function sendToMeta(name: string, params: Params) {
+  const fbq = window.fbq;
+  if (!fbq) return;
+  let metaName = META_EVENTS[name];
+  if (name === "contact_click") metaName = "Contact";
+  if (!metaName) return;
+  const items = Array.isArray(params.items) ? (params.items as DoorItem[]) : [];
+  const data: Params = {};
+  if (items.length) {
+    data.content_type = "product";
+    data.content_ids = items.map((item) => item.item_id);
+    data.content_name = items[0].item_name;
+  }
+  if (params.value !== undefined) data.value = params.value;
+  if (params.currency !== undefined) data.currency = params.currency;
+  if (params.lead_type) data.lead_type = params.lead_type;
+  if (params.method) data.method = params.method;
+  const eventId = typeof params.event_id === "string" ? params.event_id : "";
+  if (eventId) fbq("track", metaName, data, { eventID: eventId });
+  else fbq("track", metaName, data);
+}
+
+/** One id per lead, shared by the browser pixel, Meta CAPI, Google Ads and GA4. */
+export function newEventId() {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  }
+}
+
+function cookie(name: string) {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : "";
+}
 const BRAND = "Artistic Entrances";
 
 export type Params = Record<string, unknown>;
@@ -93,6 +141,7 @@ export function track(name: string, params: Params = {}) {
       layer().push({ event: name, ...base });
     }
     gtag("event", name, { ...base, send_to: GA4_ID });
+    sendToMeta(name, base);
   } catch {
     /* analytics must never break the page */
   }
@@ -224,6 +273,8 @@ export function leadSubmitted(input: {
   door?: DoorLike | null;
   opts?: DoorOpts;
   value?: number;
+  /** The id returned by appendTrackingFields for this submission. */
+  eventId?: string;
   /** Only used when NEXT_PUBLIC_ENHANCED_CONVERSIONS is "1". */
   email?: string;
   phone?: string;
@@ -233,10 +284,21 @@ export function leadSubmitted(input: {
     if (ENHANCED_CONVERSIONS && (input.email || input.phone)) {
       gtag("set", "user_data", clean({ email: input.email, phone_number: input.phone }));
     }
+    const value = input.value ?? 0;
+    if (ADS_LEAD_SEND_TO) {
+      // transaction_id lets Google Ads drop a duplicate of the same lead.
+      gtag("event", "conversion", clean({
+        send_to: ADS_LEAD_SEND_TO,
+        value,
+        currency: "USD",
+        transaction_id: input.eventId,
+      }));
+    }
     track("generate_lead", {
       lead_type: input.leadType,
+      event_id: input.eventId,
       currency: "USD",
-      value: input.value ?? 0,
+      value,
       ...stage(input.opts, "lead"),
       ...(input.door ? { items: [doorItem(input.door, input.opts)] } : {}),
     });
@@ -278,6 +340,11 @@ export type ContactMethod = "phone" | "email" | "sms" | "directions";
 
 export function trackContact(method: ContactMethod, location: string) {
   track("contact_click", { method, cta_location: location });
+}
+
+/** A click through to the Shopify store for in-stock doors. */
+export function trackShopClick(destination: string, location: string) {
+  track("shop_click", { destination, cta_location: location });
 }
 
 export function trackFormError(form: string, reason: string) {
@@ -323,9 +390,13 @@ export async function readJsonResponse<T extends { message?: string }>(
  * Attribution, GA ids, and door-interest as flat fields for a lead FormData.
  * Empty values are skipped, and existing form fields are never overwritten.
  */
-export function appendTrackingFields(form: FormData) {
+export function appendTrackingFields(form: FormData): string {
+  const eventId = newEventId();
   try {
-    const fields = {
+    const fields: Record<string, string> = {
+      event_id: eventId,
+      fbp: cookie("_fbp"),
+      fbc: cookie("_fbc"),
       ...attributionFields(),
       ...gaIds(),
       ...interestFields(),
@@ -339,4 +410,5 @@ export function appendTrackingFields(form: FormData) {
   } catch {
     /* never block a lead */
   }
+  return eventId;
 }
