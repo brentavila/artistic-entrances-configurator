@@ -119,6 +119,15 @@ export function currentPageType(): PageType {
   return pageTypeFor(window.location.pathname);
 }
 
+/** Client-side route change. Skip the first load so GTM's GA4 tag is not doubled. */
+export function trackClientPageView() {
+  track("page_view", {
+    page_path: window.location.pathname,
+    page_location: window.location.href,
+    page_title: document.title,
+  });
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function gtag(..._args: unknown[]) {
   // GA4 only recognises the real `arguments` object, not an array.
