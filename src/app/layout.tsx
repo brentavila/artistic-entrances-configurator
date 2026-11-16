@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { CallTracking } from "@/components/CallTracking";
 import { MetaPixel } from "@/components/MetaPixel";
-import { GoogleTagManager } from "@/components/GoogleTagManager";
+import {
+  GTM_HEAD_SCRIPT,
+  GoogleTagManagerNoscript,
+} from "@/components/GoogleTagManager";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { business } from "@/lib/business";
@@ -23,9 +26,12 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: GTM_HEAD_SCRIPT }} />
+      </head>
       <body>
-        <GoogleTagManager />
+        <GoogleTagManagerNoscript />
         <MetaPixel />
         <AnalyticsProvider />
         <CallTracking />

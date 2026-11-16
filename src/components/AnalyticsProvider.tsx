@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import {
   currentPageType,
+  trackClientPageView,
   trackContact,
   trackCta,
   trackShopClick,
@@ -27,6 +29,17 @@ function contactMethod(href: string): ContactMethod | null {
 
 /** Captures campaign attribution once, then tracks clicks site-wide. */
 export function AnalyticsProvider() {
+  const pathname = usePathname();
+  const firstPath = useRef(true);
+
+  useEffect(() => {
+    if (firstPath.current) {
+      firstPath.current = false;
+      return;
+    }
+    trackClientPageView();
+  }, [pathname]);
+
   useEffect(() => {
     captureAttribution();
 
