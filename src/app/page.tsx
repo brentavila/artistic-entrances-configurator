@@ -96,8 +96,6 @@ export default function HomePage() {
           <p className="eyebrow">Catalog</p>
           <h2>Get the Iron Door Catalog</h2>
           <p>
-            The catalog request is the same lead capture as the popup on the
-            current site, placed on the page so it can be read and indexed.
             Share your details and Artistic Entrances will follow up with sizing,
             finish, and customization information.
           </p>

@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { trackContact, trackCta, currentPageType, type ContactMethod } from "@/lib/analytics";
+import {
+  currentPageType,
+  trackContact,
+  trackCta,
+  trackShopClick,
+  type ContactMethod,
+} from "@/lib/analytics";
 import { captureAttribution } from "@/lib/attribution";
 
 function contactMethod(href: string): ContactMethod | null {
@@ -35,6 +41,10 @@ export function AnalyticsProvider() {
         const link = target.closest("a[href]");
         const method = link ? contactMethod(link.getAttribute("href") ?? "") : null;
         if (link && method) trackContact(method, locationOf(link));
+        const href = link?.getAttribute("href") ?? "";
+        if (link && /^https?:\/\/(www\.)?artisticentrances\.shop(\/|$)/i.test(href)) {
+          trackShopClick(href.slice(0, 200), locationOf(link));
+        }
 
         const cta = target.closest("[data-cta]");
         if (cta) {

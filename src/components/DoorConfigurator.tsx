@@ -353,7 +353,7 @@ export function DoorConfigurator() {
     form.set("doorImagePath", door.imageUrl);
     form.set("sourceUrl", window.location.href);
 
-    appendTrackingFields(form);
+    const eventId = appendTrackingFields(form);
 
     try {
       const response = await fetch("/api/quote", { method: "POST", body: form });
@@ -365,6 +365,7 @@ export function DoorConfigurator() {
       setMockupEligible(Boolean(result.mockupEligible));
       setStatus("success");
       leadSubmitted({
+        eventId,
         leadType: "custom_door",
         door: doorLike(door),
         opts: designOpts(glass, handle, finish),

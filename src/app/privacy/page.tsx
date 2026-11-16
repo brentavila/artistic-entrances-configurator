@@ -45,7 +45,31 @@ export default function PrivacyPage() {
           text you about the request you just sent. Message and data rates may
           apply. Consent is not a condition of purchase. You can call{" "}
           {business.phoneDisplay} or email {business.email} to ask about a
-          message you received.
+          message you received. Reply STOP to any text to stop receiving
+          texts, or HELP for help. Your phone number and consent are not sold
+          or shared with third parties for their own marketing.
+        </p>
+        <h2>Analytics, advertising, and call tracking</h2>
+        <p>
+          This site uses Google Analytics, Google Ads, and the Meta (Facebook
+          and Instagram) pixel to measure which pages, doors, and ads lead to
+          requests. These tools use cookies and similar technology. When you
+          send a form, your email address, phone number, name, and ZIP code
+          may be shared with Google and Meta in hashed form so they can match
+          the request to an ad you saw. Your notes and photos are not part of
+          that match.
+        </p>
+        <p>
+          The phone number shown on this site may be a tracking number that
+          forwards to the showroom, so {business.name} can tell which
+          advertisement or page led to a call. Calls may be recorded for
+          quality and training.
+        </p>
+        <p>
+          You can limit ad tracking in your browser or device settings, in
+          your Google ad settings, and in your Meta ad preferences. To ask
+          about the information {business.name} holds about you, email{" "}
+          {business.email}.
         </p>
       </section>
       <FaqSection
