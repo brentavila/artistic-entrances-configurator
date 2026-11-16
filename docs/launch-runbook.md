@@ -85,7 +85,7 @@ Browser events the site sends to Meta: `PageView`, `ViewContent` (door views), `
    - Create a pool for website visitors with about 4–6 local 725/702 numbers.
    - Set the *swap number* to the showroom number exactly as the site shows it: `(725) 302-1391`.
    - Forward to the showroom line.
-   - Copy the pool's tracking script URL into Vercel as `NEXT_PUBLIC_GHL_CALL_TRACKING_SRC`.
+   - Copy the pool script URL (the one ending `number_pool.js`) into Vercel as `NEXT_PUBLIC_GHL_CALL_TRACKING_SRC`. The site also loads GoHighLevel's `user_session.js` automatically, which GHL's instructions require alongside it.
    - The site loads it on every page; each visitor sees a pool number, and the call lands in GHL with that visitor's source.
    - If GHL gives you a code snippet instead of a single URL, send it to me and I'll wire it in exactly as given.
 2. **Static tracking numbers** (one per channel), shown only in that channel:
