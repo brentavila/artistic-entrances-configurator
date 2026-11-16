@@ -1,6 +1,7 @@
 import { Suspense } from "react";
+import { JsonLd } from "@/components/JsonLd";
 import { PlannerApp } from "@/components/planner/PlannerApp";
-import { pageMetadata } from "@/lib/seo";
+import { breadcrumbSchema, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Preview Your Entry",
@@ -12,6 +13,12 @@ export const metadata = pageMetadata({
 export default function PlannerPage() {
   return (
     <main className="planner-page">
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "Home", path: "/" },
+          { name: "Preview Your Entry", path: "/planner" },
+        ])}
+      />
       <Suspense fallback={<p className="planner-loading">Loading the planner…</p>}>
         <PlannerApp />
       </Suspense>

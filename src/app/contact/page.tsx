@@ -5,7 +5,7 @@ import { ShowroomMap } from "@/components/ShowroomMap";
 import { TrustBadges } from "@/components/TrustBadges";
 import { contactFaqs } from "@/content/faqs";
 import { business } from "@/lib/business";
-import { breadcrumbSchema, faqSchema, localBusinessSchema, pageMetadata } from "@/lib/seo";
+import { breadcrumbSchema, faqSchema, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Contact Artistic Entrances in Las Vegas",
@@ -17,7 +17,6 @@ export const metadata = pageMetadata({
 export default function ContactPage() {
   return (
     <main>
-      <JsonLd data={localBusinessSchema()} />
       <JsonLd data={faqSchema(contactFaqs)} />
       <JsonLd
         data={breadcrumbSchema([

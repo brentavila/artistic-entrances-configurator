@@ -13,7 +13,7 @@ import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
 import { homeFaqs } from "@/content/faqs";
 import { serviceCities } from "@/lib/business";
-import { breadcrumbSchema, faqSchema, localBusinessSchema, pageMetadata } from "@/lib/seo";
+import { breadcrumbSchema, faqSchema, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Custom Iron Entry Doors in Las Vegas",
@@ -25,7 +25,6 @@ export const metadata = pageMetadata({
 export default function HomePage() {
   return (
     <main>
-      <JsonLd data={localBusinessSchema()} />
       <JsonLd data={faqSchema(homeFaqs)} />
       <JsonLd data={breadcrumbSchema([{ name: "Home", path: "/" }])} />
 

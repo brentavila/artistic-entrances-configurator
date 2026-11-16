@@ -6,9 +6,11 @@ import {
   GTM_HEAD_SCRIPT,
   GoogleTagManagerNoscript,
 } from "@/components/GoogleTagManager";
+import { JsonLd } from "@/components/JsonLd";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { business } from "@/lib/business";
+import { siteGraphSchema } from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,6 +37,7 @@ export default function RootLayout({
         <MetaPixel />
         <AnalyticsProvider />
         <CallTracking />
+        <JsonLd data={siteGraphSchema()} />
         <SiteHeader />
         {children}
         <SiteFooter />

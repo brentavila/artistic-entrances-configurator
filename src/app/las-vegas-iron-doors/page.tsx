@@ -6,7 +6,7 @@ import { TrustBadges } from "@/components/TrustBadges";
 import { JsonLd } from "@/components/JsonLd";
 import { lasVegasFaqs } from "@/content/faqs";
 import { business, serviceCities } from "@/lib/business";
-import { breadcrumbSchema, faqSchema, localBusinessSchema, pageMetadata } from "@/lib/seo";
+import { breadcrumbSchema, faqSchema, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Custom Iron Doors in Las Vegas, Nevada",
@@ -18,7 +18,6 @@ export const metadata = pageMetadata({
 export default function LasVegasPage() {
   return (
     <main>
-      <JsonLd data={localBusinessSchema()} />
       <JsonLd data={faqSchema(lasVegasFaqs)} />
       <JsonLd
         data={breadcrumbSchema([

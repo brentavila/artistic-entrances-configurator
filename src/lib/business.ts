@@ -22,6 +22,10 @@ export const business = {
   mapUrl:
     "https://www.google.com/maps/search/?api=1&query=71+N+Pecos+Rd+Ste+110+Las+Vegas+NV+89101",
   googleProfileUrl: "https://maps.app.goo.gl/1WJQNSXsoGSJSBq7A",
+  shopUrl: "https://artisticentrances.shop",
+  latitude: 36.1619232,
+  longitude: -115.1011695,
+  logoPath: "/brand/logo-horizontal.png",
 };
 
 export const serviceCities = [
