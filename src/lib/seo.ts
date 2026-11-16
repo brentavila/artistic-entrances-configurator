@@ -54,15 +54,20 @@ export function breadcrumbSchema(items: Array<{ name: string; path: string }>) {
 }
 
 export function localBusinessSchema() {
+  const logo = `${business.siteUrl}${business.logoPath}`;
   return {
     "@context": "https://schema.org",
     "@type": "HomeAndConstructionBusiness",
+    "@id": `${business.siteUrl}/#business`,
     name: business.name,
+    legalName: business.legalName,
     url: business.siteUrl,
     image: `${business.siteUrl}/media/doors/full/website-images-1.webp`,
+    logo,
     hasMap: business.mapUrl,
     telephone: business.phoneTel,
     email: business.email,
+    sameAs: [business.googleProfileUrl, business.shopUrl],
     address: {
       "@type": "PostalAddress",
       streetAddress: business.street,
@@ -70,6 +75,11 @@ export function localBusinessSchema() {
       addressRegion: business.region,
       postalCode: business.postalCode,
       addressCountry: business.country,
+    },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: business.latitude,
+      longitude: business.longitude,
     },
     areaServed: serviceCities.map((name) => ({
       "@type": "City",
@@ -88,8 +98,29 @@ export function localBusinessSchema() {
         "@type": "Service",
         name: "Custom iron entry doors",
         areaServed: "Greater Las Vegas, Nevada",
-        provider: { "@type": "HomeAndConstructionBusiness", name: business.name },
+        provider: { "@id": `${business.siteUrl}/#business` },
       },
     },
+  };
+}
+
+/** One graph on every page: local business + website. */
+export function siteGraphSchema() {
+  const org = localBusinessSchema();
+  const businessNode = { ...org };
+  delete (businessNode as { "@context"?: string })["@context"];
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      businessNode,
+      {
+        "@type": "WebSite",
+        "@id": `${business.siteUrl}/#website`,
+        name: business.name,
+        url: business.siteUrl,
+        inLanguage: "en-US",
+        publisher: { "@id": `${business.siteUrl}/#business` },
+      },
+    ],
   };
 }
