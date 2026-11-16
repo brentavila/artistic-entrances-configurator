@@ -1412,3 +1412,62 @@ export function renderDoor(analysis: DoorAnalysis, options: RenderOptions): Rgba
   }
   return { data: out, width: w, height: h };
 }
+
+export type DoorParts = {
+  width: number;
+  height: number;
+  /**
+   * Iron color at every pixel of the crop, RGB. The finish is applied, and
+   * glass edges carry the iron color rather than a blend with the glass.
+   */
+  iron: Uint8ClampedArray;
+  /** Glass color, RGB, meaningful where analysis.glass > 0. Null without reliable glass. */
+  glass: Uint8ClampedArray | null;
+};
+
+/**
+ * The same colors as renderDoor, kept apart so a 3D view can stack the iron
+ * and the glass as separate layers. A null finish leaves the iron as
+ * photographed; a null glass keeps the photo's glass.
+ */
+export function renderDoorParts(analysis: DoorAnalysis, options: RenderOptions): DoorParts {
+  const { width: w, height: h, ironRgb, glassRgb } = analysis;
+  const n = w * h;
+  const iron = new Uint8ClampedArray(n * 3);
+  if (!analysis.hasGlass) {
+    const flat = renderDoor(analysis, options).data;
+    for (let p = 0; p < n; p += 1) {
+      iron[p * 3] = flat[p * 4];
+      iron[p * 3 + 1] = flat[p * 4 + 1];
+      iron[p * 3 + 2] = flat[p * 4 + 2];
+    }
+    return { width: w, height: h, iron, glass: null };
+  }
+  const scene = options.scene ?? "studio";
+  const map =
+    options.finish && analysis.finishable ? finishMapper(analysis, options.finish) : null;
+  const out = new Float32Array(3);
+  for (let p = 0; p < n; p += 1) {
+    const i = p * 3;
+    if (map) {
+      map(ironRgb[i], ironRgb[i + 1], ironRgb[i + 2], out);
+      iron[i] = out[0];
+      iron[i + 1] = out[1];
+      iron[i + 2] = out[2];
+    } else {
+      iron[i] = ironRgb[i];
+      iron[i + 1] = ironRgb[i + 1];
+      iron[i + 2] = ironRgb[i + 2];
+    }
+  }
+  const glass = new Uint8ClampedArray(n * 3);
+  const layer = options.glass ? glassLayer(analysis, options.glass, scene) : null;
+  const source = layer ?? glassRgb;
+  for (let i = 0; i < n * 3; i += 1) glass[i] = source[i];
+  return { width: w, height: h, iron, glass };
+}
+
+/** Drops the cached glass layers for a door, to free memory once they are drawn. */
+export function releaseGlassLayers(analysis: DoorAnalysis) {
+  glassLayers.delete(analysis);
+}

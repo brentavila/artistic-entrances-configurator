@@ -12,18 +12,18 @@ export function SiteFooter() {
         <br />
         {business.city}, {business.region} {business.postalCode}
         <br />
-        <a href={`tel:${business.phoneTel}`}>{business.phoneDisplay}</a>
+        <a data-cta-location="footer" href={`tel:${business.phoneTel}`}>{business.phoneDisplay}</a>
         <br />
-        <a href={`mailto:${business.email}`}>{business.email}</a>
+        <a data-cta-location="footer" href={`mailto:${business.email}`}>{business.email}</a>
         <br />
         {business.hoursLabel}
       </address>
-      <nav aria-label="Footer">
+      <nav aria-label="Footer" data-cta-location="footer">
         <a href="/projects">Projects</a>
         <a href="/gallery">Gallery</a>
-        <a href="/design-your-door">Design Your Door</a>
+        <a data-cta="design_your_door" href="/design-your-door">Design Your Door</a>
         <a href="/las-vegas-iron-doors">Las Vegas</a>
-        <a href="/catalog">Catalog</a>
+        <a data-cta="request_catalog" href="/catalog">Catalog</a>
         <a href="/about">About</a>
         <a href="/contact">Contact</a>
         <a href="/privacy">Privacy</a>

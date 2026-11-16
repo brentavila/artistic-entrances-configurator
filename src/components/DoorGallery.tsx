@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { TrackedDoorList } from "@/components/TrackedDoorList";
 import { catalog } from "@/lib/catalog";
 
 export function DoorGallery() {
@@ -64,9 +65,14 @@ export function DoorGallery() {
       <p className="door-results-copy">
         Showing {shown.length} of {filtered.length} doors
       </p>
-      <div className="featured-grid">
+      <TrackedDoorList
+        className="featured-grid"
+        doors={shown}
+        listId="door_gallery"
+        listName="Door gallery"
+      >
         {shown.map((door) => (
-          <a className="door-card" href={`/design-your-door?door=${door.id}`} key={door.id}>
+          <a className="door-card" data-door-id={door.id} href={`/design-your-door?door=${door.id}`} key={door.id}>
             <span className="door-thumb">
               <Image alt={door.alt} fill sizes="(max-width: 700px) 46vw, 240px" src={door.thumbnailUrl} unoptimized />
             </span>
@@ -74,7 +80,7 @@ export function DoorGallery() {
             <small>Design this door</small>
           </a>
         ))}
-      </div>
+      </TrackedDoorList>
       {visible < filtered.length ? (
         <button className="secondary-action" type="button" onClick={() => setVisible((count) => count + 24)}>
           Load More Doors

@@ -74,7 +74,7 @@ export default function LasVegasPage() {
           <a href={`mailto:${business.email}`}>{business.email}</a> with door
           numbers, plans, or a photo of the current entry.
         </p>
-        <a className="primary-action" href="/design-your-door">
+        <a className="primary-action" data-cta="design_your_door" data-cta-location="landing_page" href="/design-your-door">
           Design a Las Vegas Door
         </a>
       </section>

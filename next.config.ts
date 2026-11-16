@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
   // Cursor's local preview uses 127.0.0.1 and a forwarded *.agent.cvm.dev host.
   // Next.js blocks those in development, which leaves the planner as static HTML.
   allowedDevOrigins: ["127.0.0.1", "*.agent.cvm.dev", "*.trycloudflare.com"],
+  // The old GoHighLevel site's pages. Everything else there was a single page.
+  async redirects() {
+    return [
+      { source: "/privacy-policy", destination: "/privacy", permanent: true },
+      { source: "/terms-of-services", destination: "/privacy", permanent: true },
+      { source: "/terms-of-service", destination: "/privacy", permanent: true },
+    ];
+  },
   images: {
     remotePatterns: [
       {

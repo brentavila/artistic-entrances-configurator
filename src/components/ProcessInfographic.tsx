@@ -59,7 +59,7 @@ export function ProcessInfographic() {
         </ol>
         <p className="tr-process-note">
           Questions at any step: call {business.phoneDisplay} or{" "}
-          <a href="/contact">contact the showroom</a>.
+          <a data-cta="contact_showroom" data-cta-location="process" href="/contact">contact the showroom</a>.
         </p>
       </div>
     </section>

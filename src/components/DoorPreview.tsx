@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { renderDoor, type DoorAnalysis, type Rgba } from "@/lib/door-render";
 import {
-  analyzeDoor,
-  renderDoor,
-  swatchMean,
-  type DoorAnalysis,
-  type Rgba,
-} from "@/lib/door-render";
+  AS_SHOWN,
+  loadDoor,
+  loadGlassTexture,
+  loadSwatchMean,
+  nextFrame,
+} from "@/lib/door-art";
 import "@/styles/door-preview.css";
 
 type PreviewDoor = { id: string; imageUrl: string; alt: string };
@@ -22,117 +23,8 @@ type Props = {
   sizes?: string;
 };
 
-type Loaded = { image: HTMLImageElement; analysis: DoorAnalysis | null };
-
-const AS_SHOWN = "as-shown";
 const FADE_MS = 180;
 const FIRST_FADE_MS = 420;
-
-/* Caches shared by every preview on the page. */
-const doorCache = new Map<string, Promise<Loaded>>();
-const textureCache = new Map<string, Promise<Rgba | null>>();
-const swatchCache = new Map<string, Promise<[number, number, number] | null>>();
-
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new window.Image();
-    image.decoding = "async";
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Could not load ${src}`));
-    image.src = src;
-  });
-}
-
-function pixelsOf(image: HTMLImageElement): Rgba | null {
-  const canvas = document.createElement("canvas");
-  canvas.width = image.naturalWidth;
-  canvas.height = image.naturalHeight;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context || !canvas.width || !canvas.height) return null;
-  context.drawImage(image, 0, 0);
-  const frame = context.getImageData(0, 0, canvas.width, canvas.height);
-  return { data: frame.data, width: frame.width, height: frame.height };
-}
-
-/** Runs heavy work when the browser is idle, so the first paint stays quick. */
-function whenIdle<T>(work: () => T) {
-  return new Promise<T>((resolve, reject) => {
-    const run = () => {
-      try {
-        resolve(work());
-      } catch (error) {
-        reject(error);
-      }
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      window.requestIdleCallback(run, { timeout: 600 });
-    } else {
-      window.setTimeout(run, 30);
-    }
-  });
-}
-
-/**
- * Runs on the next animation frame, with a timer fallback for pages where
- * frames are paused (a background tab, some embedded previews).
- */
-function nextFrame(work: () => void) {
-  let done = false;
-  const run = () => {
-    if (done) return;
-    done = true;
-    work();
-  };
-  window.requestAnimationFrame(run);
-  window.setTimeout(run, 80);
-}
-
-function loadDoor(src: string) {
-  let pending = doorCache.get(src);
-  if (!pending) {
-    pending = loadImage(src).then((image) =>
-      whenIdle(() => {
-        const pixels = pixelsOf(image);
-        return { image, analysis: pixels ? analyzeDoor(pixels) : null };
-      }),
-    );
-    pending.catch(() => doorCache.delete(src));
-    doorCache.set(src, pending);
-    if (doorCache.size > 12) {
-      const oldest = doorCache.keys().next().value;
-      if (oldest !== undefined && oldest !== src) doorCache.delete(oldest);
-    }
-  }
-  return pending;
-}
-
-function loadGlassTexture(id: string) {
-  let pending = textureCache.get(id);
-  if (!pending) {
-    // A missing texture falls back to the renderer's procedural relief.
-    pending = loadImage(`/media/render/glass/${id}.webp`)
-      .then((image) => pixelsOf(image))
-      .catch(() => null);
-    textureCache.set(id, pending);
-  }
-  return pending;
-}
-
-function loadSwatchMean(url: string | null) {
-  if (!url) return Promise.resolve(null);
-  let pending = swatchCache.get(url);
-  if (!pending) {
-    pending = loadImage(url)
-      .then((image) => {
-        const pixels = pixelsOf(image);
-        return pixels ? swatchMean(pixels) : null;
-      })
-      .catch(() => null);
-    swatchCache.set(url, pending);
-  }
-  return pending;
-}
 
 function statusFor(
   state: "loading" | "ready" | "photo",

@@ -1,4 +1,16 @@
 import { business } from "@/lib/business";
+import {
+  clickIdLine,
+  emptyTracking,
+  finishName,
+  firstClickIdLine,
+  glassName,
+  interestDoorNames,
+  interestTags,
+  topDoorLabel,
+  touchLabel,
+  type LeadTracking,
+} from "@/lib/lead-tracking";
 
 export const ghlFieldIds = {
   door: "PK0Ai5QtLvVs6SzBE2A1",
@@ -58,13 +70,44 @@ export type LeadRecord = {
   tags: string[];
   summary: string;
   consentTimestamp: string;
+  tracking: LeadTracking;
 };
+
+/**
+ * Optional custom fields. The owner creates each one in GHL and puts its id in
+ * the matching environment variable; a field whose variable is empty is
+ * skipped, so tags and the summary field carry everything until then.
+ */
+export function optionalGhlFields(
+  lead: Pick<LeadRecord, "tracking">,
+  env: Record<string, string | undefined> = process.env,
+) {
+  const t = lead.tracking;
+  const glass = glassName(t.interestGlassId);
+  const finish = finishName(t.interestFinishId);
+  const candidates: Array<[string | undefined, string]> = [
+    [env.GHL_FIELD_INTEREST_DOORS, interestDoorNames(t)],
+    [env.GHL_FIELD_TOP_DOOR, topDoorLabel(t)],
+    [env.GHL_FIELD_INTEREST_GLASS, glass],
+    [env.GHL_FIELD_INTEREST_FINISH, finish],
+    [env.GHL_FIELD_FIRST_TOUCH, touchLabel(t.firstTouch)],
+    [env.GHL_FIELD_LAST_TOUCH, touchLabel(t.lastTouch)],
+    [env.GHL_FIELD_GCLID, t.clickIds.gclid || t.firstClickIds.gclid],
+    [env.GHL_FIELD_GA_CLIENT_ID, t.gaClientId],
+  ];
+  return candidates
+    .filter(([id]) => Boolean(id?.trim()))
+    .map(([id, value]) => field((id as string).trim(), value));
+}
 
 function field(id: string, value: string) {
   return { id, field_value: value };
 }
 
-export function leadTags(lead: Pick<LeadRecord, "leadType" | "inArea" | "mockupEligible">) {
+export function leadTags(
+  lead: Pick<LeadRecord, "leadType" | "inArea" | "mockupEligible"> &
+    Partial<Pick<LeadRecord, "doorId" | "tracking">>,
+) {
   const tags = [
     "website",
     lead.leadType === "quote"
@@ -78,10 +121,32 @@ export function leadTags(lead: Pick<LeadRecord, "leadType" | "inArea" | "mockupE
 
   if (lead.mockupEligible) tags.push("mockup-eligible");
   if (!lead.inArea) tags.push("conversational-follow-up");
+  // Interest and source tags. Only the quote form submits a real door.
+  tags.push(
+    ...interestTags(
+      lead.tracking ?? emptyTracking(),
+      lead.leadType === "quote" ? (lead.doorId ?? "") : "",
+    ),
+  );
   return tags;
 }
 
 export function buildSummary(lead: Omit<LeadRecord, "summary" | "tags">) {
+  const t = lead.tracking;
+  const layoutGlassFinish = [
+    t.interestLayout,
+    glassName(t.interestGlassId),
+    finishName(t.interestFinishId),
+  ]
+    .filter(Boolean)
+    .join(" / ");
+  const visitor = [
+    t.device,
+    t.visitCount ? `visit #${t.visitCount}` : "",
+    t.pagePath ? `submitted on ${t.pagePath}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
   const lines = [
     `Lead type: ${lead.leadType}`,
     `Service area: ${lead.serviceArea}`,
@@ -109,6 +174,18 @@ export function buildSummary(lead: Omit<LeadRecord, "summary" | "tags">) {
     lead.utmMedium ? `UTM medium: ${lead.utmMedium}` : "",
     lead.utmCampaign ? `UTM campaign: ${lead.utmCampaign}` : "",
     lead.gclid ? `GCLID: ${lead.gclid}` : "",
+    interestDoorNames(t) ? `Doors of interest: ${interestDoorNames(t)}` : "",
+    t.interestDoorsDetail ? `Interest activity: ${t.interestDoorsDetail}` : "",
+    topDoorLabel(t) ? `Top door: ${topDoorLabel(t)}` : "",
+    layoutGlassFinish ? `Preferred layout / glass / finish: ${layoutGlassFinish}` : "",
+    touchLabel(t.firstTouch) ? `First touch: ${touchLabel(t.firstTouch)}` : "",
+    touchLabel(t.lastTouch) ? `Last touch: ${touchLabel(t.lastTouch)}` : "",
+    clickIdLine(t) ? `Click ids: ${clickIdLine(t)}` : "",
+    firstClickIdLine(t) ? `First-touch click ids: ${firstClickIdLine(t)}` : "",
+    t.gaClientId || t.gaSessionId
+      ? `GA client id / session id: ${t.gaClientId || "-"} / ${t.gaSessionId || "-"}`
+      : "",
+    visitor ? `Visitor: ${visitor}` : "",
     `SMS consent: yes at ${lead.consentTimestamp}`,
   ];
 
@@ -153,6 +230,7 @@ export async function deliverToGoHighLevel(
         field(ghlFieldIds.screen, lead.screenName),
         field(ghlFieldIds.sidelights, lead.sidelightName),
         field(ghlFieldIds.jamb, lead.jambName),
+        ...optionalGhlFields(lead),
       ],
     }),
     signal: AbortSignal.timeout(15_000),

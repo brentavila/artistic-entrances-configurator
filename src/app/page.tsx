@@ -53,7 +53,7 @@ export default function HomePage() {
           </p>
         </div>
         <FeaturedDoors />
-        <a className="secondary-action section-action" href="/gallery">
+        <a className="secondary-action section-action" data-cta="browse_gallery" data-cta-location="featured_doors" href="/gallery">
           Browse the Full Gallery
         </a>
       </section>
@@ -71,7 +71,7 @@ export default function HomePage() {
           </p>
         </div>
         <ProjectGallery limit={3} />
-        <a className="secondary-action section-action" href="/projects">
+        <a className="secondary-action section-action" data-cta="see_projects" data-cta-location="home_projects" href="/projects">
           See the Project Gallery
         </a>
       </section>
@@ -96,12 +96,10 @@ export default function HomePage() {
           <p className="eyebrow">Catalog</p>
           <h2>Get the Iron Door Catalog</h2>
           <p>
-            The catalog request is the same lead capture as the popup on the
-            current site, placed on the page so it can be read and indexed.
             Share your details and Artistic Entrances will follow up with sizing,
             finish, and customization information.
           </p>
-          <a className="primary-action" href="/catalog">
+          <a className="primary-action" data-cta="request_catalog" data-cta-location="catalog_band" href="/catalog">
             Request the Catalog
           </a>
         </div>
