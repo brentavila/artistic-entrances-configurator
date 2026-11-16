@@ -1,23 +1,17 @@
 export const GTM_ID = "GTM-TPFGF2VM";
 
 /**
- * Real <script> tags, first children of <head>. next/script hid GTM from
- * Tag Assistant because it stored the snippet in a Next.js payload.
+ * Official container boot plus the gtag() helper. Must be a raw <script> in
+ * the root layout <head>, not next/script — Tag Assistant ignores Next payloads.
  */
-export function GoogleTagManagerHead() {
-  return (
-    <>
-      <script async src={`https://www.googletagmanager.com/gtm.js?id=${GTM_ID}`} />
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `window.dataLayer = window.dataLayer || [];
+export const GTM_HEAD_SCRIPT = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${GTM_ID}');
+window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());`,
-        }}
-      />
-    </>
-  );
-}
+gtag('js', new Date());`;
 
 /** Official noscript iframe. Place immediately after `<body>`. */
 export function GoogleTagManagerNoscript() {

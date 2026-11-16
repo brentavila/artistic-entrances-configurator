@@ -3,7 +3,7 @@ import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { CallTracking } from "@/components/CallTracking";
 import { MetaPixel } from "@/components/MetaPixel";
 import {
-  GoogleTagManagerHead,
+  GTM_HEAD_SCRIPT,
   GoogleTagManagerNoscript,
 } from "@/components/GoogleTagManager";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -26,9 +26,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <GoogleTagManagerHead />
+        <script dangerouslySetInnerHTML={{ __html: GTM_HEAD_SCRIPT }} />
       </head>
       <body>
         <GoogleTagManagerNoscript />
