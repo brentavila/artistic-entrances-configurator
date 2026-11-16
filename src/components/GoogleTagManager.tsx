@@ -1,5 +1,24 @@
 export const GTM_ID = "GTM-TPFGF2VM";
 
+/**
+ * Real <script> tags, first children of <head>. next/script hid GTM from
+ * Tag Assistant because it stored the snippet in a Next.js payload.
+ */
+export function GoogleTagManagerHead() {
+  return (
+    <>
+      <script async src={`https://www.googletagmanager.com/gtm.js?id=${GTM_ID}`} />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());`,
+        }}
+      />
+    </>
+  );
+}
+
 /** Official noscript iframe. Place immediately after `<body>`. */
 export function GoogleTagManagerNoscript() {
   return (
