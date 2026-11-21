@@ -1,4 +1,5 @@
 import { PaymentMarks } from "@/components/PaymentMarks";
+import { TrackedPhone } from "@/components/TrackedPhone";
 import { business } from "@/lib/business";
 
 export function SiteFooter() {
@@ -12,7 +13,7 @@ export function SiteFooter() {
         <br />
         {business.city}, {business.region} {business.postalCode}
         <br />
-        <a data-cta-location="footer" href={`tel:${business.phoneTel}`}>{business.phoneDisplay}</a>
+        <TrackedPhone location="footer" />
         <br />
         <a data-cta-location="footer" href={`mailto:${business.email}`}>{business.email}</a>
         <br />

@@ -1,5 +1,6 @@
 import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
+import { TrackedPhoneText } from "@/components/TrackedPhone";
 import { privacyFaqs } from "@/content/faqs";
 import { business } from "@/lib/business";
 import { breadcrumbSchema, faqSchema, pageMetadata } from "@/lib/seo";
@@ -44,7 +45,7 @@ export default function PrivacyPage() {
           Checking the consent box is permission for {business.name} to call and
           text you about the request you just sent. Message and data rates may
           apply. Consent is not a condition of purchase. You can call{" "}
-          {business.phoneDisplay} or email {business.email} to ask about a
+          <TrackedPhoneText /> or email {business.email} to ask about a
           message you received. Reply STOP to any text to stop receiving
           texts, or HELP for help. Your phone number and consent are not sold
           or shared with third parties for their own marketing.

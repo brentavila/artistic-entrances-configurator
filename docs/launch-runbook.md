@@ -85,8 +85,9 @@ Browser events the site sends to Meta: `PageView`, `ViewContent` (door views), `
    - Create a pool for website visitors with about 4–6 local 725/702 numbers.
    - Set the *swap number* to the showroom number exactly as the site shows it: `(725) 302-1391`.
    - Forward to the showroom line.
-   - Copy the pool script URL (the one ending `number_pool.js`) into Vercel as `NEXT_PUBLIC_GHL_CALL_TRACKING_SRC`. The site also loads GoHighLevel's `user_session.js` automatically, which GHL's instructions require alongside it.
-   - The site loads it on every page; each visitor sees a pool number, and the call lands in GHL with that visitor's source.
+   - The Google Ads number-pool script is hardcoded in `src/components/CallTracking.tsx` and loads on every page with `user_session.js`.
+   - For a second pool (not the Google Ads one), copy that pool's `number_pool.js` URL into Vercel as `NEXT_PUBLIC_GHL_CALL_TRACKING_SRC`. The same URL as the Google Ads pool is ignored so the script is not loaded twice.
+   - Eligible visitors see a pool number, and the call lands in GHL with that visitor's source.
    - If GHL gives you a code snippet instead of a single URL, send it to me and I'll wire it in exactly as given.
 2. **Static tracking numbers** (one per channel), shown only in that channel:
    - Google Business Profile
@@ -128,7 +129,7 @@ Browser events the site sends to Meta: `PageView`, `ViewContent` (door views), `
    | `NEXT_PUBLIC_GOOGLE_ADS_LEAD_SEND_TO` | Step 2.1 |
    | `NEXT_PUBLIC_ENHANCED_CONVERSIONS` | `1` (Step 2.2) |
    | `NEXT_PUBLIC_META_PIXEL_ID`, `META_CAPI_ACCESS_TOKEN` | Step 3 |
-   | `NEXT_PUBLIC_GHL_CALL_TRACKING_SRC` | Step 4.1 |
+   | `NEXT_PUBLIC_GHL_CALL_TRACKING_SRC` | Optional extra pool (Step 4.1); Google Ads pool is in code |
    | `GHL_FIELD_*` (optional) | GHL custom field ids |
 
    `NEXT_PUBLIC_` values are built into the page, so **redeploy after changing them**.
@@ -200,6 +201,7 @@ If `lead_received` is far below the GHL count, check the Vercel logs for `[conve
 
 - `src/lib/analytics.ts`: every browser event, the Meta event mapping, and the Google Ads lead conversion.
 - `src/lib/server-conversions.ts`: Meta Conversions API and the GA4 Measurement Protocol, sent after the lead reaches the CRM.
-- `src/components/MetaPixel.tsx`, `src/components/CallTracking.tsx`: the pixel and the GHL number pool script, each off until its env variable is set.
+- `src/components/MetaPixel.tsx`: the pixel, off until `NEXT_PUBLIC_META_PIXEL_ID` is set.
+- `src/components/CallTracking.tsx`: the Google Ads GHL number pool (always on) plus an optional extra pool from `NEXT_PUBLIC_GHL_CALL_TRACKING_SRC`.
 - `src/app/api/quote/route.ts`: lead validation, CRM delivery, then the server conversions.
 - `docs/analytics.md`: the event dictionary.

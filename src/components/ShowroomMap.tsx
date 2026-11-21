@@ -1,3 +1,4 @@
+import { TrackedPhone } from "@/components/TrackedPhone";
 import { business, serviceCities } from "@/lib/business";
 import "@/styles/trust.css";
 
@@ -56,7 +57,7 @@ export function ShowroomMap({
             <div>
               <dt>Phone</dt>
               <dd>
-                <a href={`tel:${business.phoneTel}`}>{business.phoneDisplay}</a>
+                <TrackedPhone />
               </dd>
             </div>
             <div>

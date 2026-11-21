@@ -2,6 +2,7 @@ import { FaqSection } from "@/components/FaqSection";
 import { JsonLd } from "@/components/JsonLd";
 import { LeadForm } from "@/components/LeadForm";
 import { ShowroomMap } from "@/components/ShowroomMap";
+import { TrackedPhone, TrackedPhoneText } from "@/components/TrackedPhone";
 import { TrustBadges } from "@/components/TrustBadges";
 import { contactFaqs } from "@/content/faqs";
 import { business } from "@/lib/business";
@@ -29,7 +30,7 @@ export default function ContactPage() {
         <p className="eyebrow">Las Vegas showroom</p>
         <h1>Contact Artistic Entrances</h1>
         <p>
-          Call {business.phoneDisplay}, email {business.email}, or send the form.
+          Call <TrackedPhoneText />, email {business.email}, or send the form.
           Hours are {business.hoursLabel}. For a door you already designed, use
           Design Your Door so the glass, handle, and finish are included.
         </p>
@@ -43,7 +44,7 @@ export default function ContactPage() {
             {business.city}, {business.region} {business.postalCode}
           </p>
           <p>
-            <a href={`tel:${business.phoneTel}`}>{business.phoneDisplay}</a>
+            <TrackedPhone />
             <br />
             <a href={`mailto:${business.email}`}>{business.email}</a>
           </p>
