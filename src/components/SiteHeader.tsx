@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { business } from "@/lib/business";
+import { TrackedPhone } from "@/components/TrackedPhone";
 
 const links = [
   { href: "/projects", label: "Projects" },
@@ -39,9 +39,7 @@ export function SiteHeader() {
           ))}
         </div>
       </nav>
-      <a className="header-phone" data-cta-location="header" href={`tel:${business.phoneTel}`}>
-        {business.phoneDisplay}
-      </a>
+      <TrackedPhone className="header-phone" location="header" />
       <a className="header-cta" data-cta="design_your_door" data-cta-location="header" href="/design-your-door">
         Design Your Door
       </a>

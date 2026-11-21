@@ -1,4 +1,4 @@
-import { business } from "@/lib/business";
+import { TrackedPhoneText } from "@/components/TrackedPhone";
 import { catalog } from "@/lib/catalog";
 import "@/styles/trust.css";
 
@@ -58,7 +58,7 @@ export function ProcessInfographic() {
           ))}
         </ol>
         <p className="tr-process-note">
-          Questions at any step: call {business.phoneDisplay} or{" "}
+          Questions at any step: call <TrackedPhoneText /> or{" "}
           <a data-cta="contact_showroom" data-cta-location="process" href="/contact">contact the showroom</a>.
         </p>
       </div>

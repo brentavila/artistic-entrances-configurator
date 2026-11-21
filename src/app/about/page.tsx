@@ -1,6 +1,7 @@
 import { FaqSection } from "@/components/FaqSection";
 import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { JsonLd } from "@/components/JsonLd";
+import { TrackedPhoneText } from "@/components/TrackedPhone";
 import { aboutFaqs } from "@/content/faqs";
 import { business } from "@/lib/business";
 import { breadcrumbSchema, faqSchema, pageMetadata } from "@/lib/seo";
@@ -72,7 +73,7 @@ export default function AboutPage() {
         <h2>Where to Visit</h2>
         <p>
           {business.name}, {business.street}, {business.city}, {business.region}{" "}
-          {business.postalCode}. {business.hoursLabel}. {business.phoneDisplay}.
+          {business.postalCode}. {business.hoursLabel}. <TrackedPhoneText />.
         </p>
       </section>
       <LeadTimeNote />

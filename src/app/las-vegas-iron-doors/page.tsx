@@ -4,6 +4,7 @@ import { LeadTimeNote } from "@/components/LeadTimeNote";
 import { ShowroomMap } from "@/components/ShowroomMap";
 import { TrustBadges } from "@/components/TrustBadges";
 import { JsonLd } from "@/components/JsonLd";
+import { TrackedPhoneText } from "@/components/TrackedPhone";
 import { lasVegasFaqs } from "@/content/faqs";
 import { business, serviceCities } from "@/lib/business";
 import { breadcrumbSchema, faqSchema, localBusinessSchema, pageMetadata } from "@/lib/seo";
@@ -33,7 +34,7 @@ export default function LasVegasPage() {
           Artistic Entrances is a Las Vegas iron door showroom at {business.street},{" "}
           {business.city}, {business.region} {business.postalCode}. Homeowners,
           builders, and contractors use the gallery to choose a door, then record
-          glass, handle, and finish for a local quote. Call {business.phoneDisplay}{" "}
+          glass, handle, and finish for a local quote. Call <TrackedPhoneText />{" "}
           {business.hoursLabel}.
         </p>
       </section>
